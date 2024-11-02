@@ -7,28 +7,50 @@ URL:            https://github.com/xenia-project/xenia-launcher
 BuildArch:      x86_64
 
 Requires:       gtk3
+Requires:       libglvnd-glx
+Requires:       mesa-libGL
 
 %description
 A launcher application for the Xenia Xbox 360 emulator.
 
 %install
+mkdir -p %{buildroot}/opt/xenia-launcher
 mkdir -p %{buildroot}/usr/bin
-mkdir -p %{buildroot}/usr/lib
 mkdir -p %{buildroot}/usr/share/applications
 
-# Copy the executable
-install -D -m 755 %{_sourcedir}/xenia_launcher %{buildroot}/usr/bin/xenia_launcher
+# Copy the entire bundle directory
+cp -r %{_sourcedir}/build/linux/x64/release/bundle/* %{buildroot}/opt/xenia-launcher/
 
-# Copy libraries
-cp -r %{_sourcedir}/lib/* %{buildroot}/usr/lib/
+# Create launcher script
+cat > %{buildroot}/usr/bin/xenia-launcher << 'EOF'
+#!/bin/sh
+cd /opt/xenia-launcher
+exec ./xenia_launcher "$@"
+EOF
+chmod 755 %{buildroot}/usr/bin/xenia-launcher
 
-# Copy desktop file
-install -D -m 644 %{_sourcedir}/xenia-launcher.desktop %{buildroot}/usr/share/applications/xenia-launcher.desktop
+# Install desktop file
+cat > %{buildroot}/usr/share/applications/xenia-launcher.desktop << 'EOF'
+[Desktop Entry]
+Name=Xenia Launcher
+Comment=A Xenia Emulator Launcher
+Exec=/usr/bin/xenia-launcher
+Icon=/opt/xenia-launcher/xenia-launcher
+Type=Application
+Categories=Game;Emulator;
+Terminal=false
+EOF
 
 %files
-%attr(755, root, root) /usr/bin/xenia_launcher
-/usr/lib/*
+%attr(755, root, root) /usr/bin/xenia-launcher
 %attr(644, root, root) /usr/share/applications/xenia-launcher.desktop
+/opt/xenia-launcher
+
+%post
+/sbin/ldconfig
+
+%postun
+/sbin/ldconfig
 
 %changelog
 * Wed Apr 24 2024 Builder <builder@example.com> - 1.0.0-1

@@ -4,8 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/settings_provider.dart';
 import 'providers/iso_games_provider.dart';
 import 'providers/live_games_provider.dart';
+import 'providers/game_stats_provider.dart';
+import 'services/game_tracking_service.dart';
 import 'screens/iso_games_screen.dart';
 import 'screens/live_games_screen.dart';
+import 'screens/logs_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,11 +21,26 @@ void main() async {
         ChangeNotifierProvider(
           create: (_) => SettingsProvider(prefs),
         ),
-        ChangeNotifierProvider(
-          create: (_) => IsoGamesProvider(prefs),
+        ChangeNotifierProxyProvider<SettingsProvider, IsoGamesProvider>(
+          create: (context) => IsoGamesProvider(
+            prefs,
+            Provider.of<SettingsProvider>(context, listen: false),
+          ),
+          update: (context, settings, previous) => previous ?? IsoGamesProvider(prefs, settings),
+        ),
+        ChangeNotifierProxyProvider<SettingsProvider, LiveGamesProvider>(
+          create: (context) => LiveGamesProvider(
+            prefs,
+            Provider.of<SettingsProvider>(context, listen: false),
+          ),
+          update: (context, settings, previous) => previous ?? LiveGamesProvider(prefs, settings),
         ),
         ChangeNotifierProvider(
-          create: (_) => LiveGamesProvider(prefs),
+          create: (context) {
+            final provider = GameStatsProvider(prefs);
+            GameTrackingService().setStatsProvider(provider);
+            return provider;
+          },
         ),
       ],
       child: const XeniaLauncher(),
@@ -55,6 +74,7 @@ class _MainScreenState extends State<MainScreen> {
   static const List<Widget> _screens = [
     IsoGamesScreen(),
     LiveGamesScreen(),
+    LogsScreen(),
   ];
 
   @override
@@ -70,6 +90,7 @@ class _MainScreenState extends State<MainScreen> {
               });
             },
             labelType: NavigationRailLabelType.all,
+            leading: const SizedBox(height: 8),
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.disc_full),
@@ -79,7 +100,30 @@ class _MainScreenState extends State<MainScreen> {
                 icon: Icon(Icons.cloud_download),
                 label: Text('Xbox Live Games'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.article_outlined),
+                label: Text('Logs'),
+              ),
             ],
+            trailing: Container(
+              margin: const EdgeInsets.only(bottom: 8.0),
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                  );
+                },
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.settings),
+                    SizedBox(height: 4),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+            ),
           ),
           const VerticalDivider(thickness: 1, width: 1),
           Expanded(

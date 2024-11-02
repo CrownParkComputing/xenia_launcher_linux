@@ -1,4 +1,5 @@
 import 'dlc.dart';
+import 'achievement.dart';
 
 enum GameType {
   iso,
@@ -15,6 +16,9 @@ class Game {
   final GameType type;
   final String? executablePath;
   final List<DLC> dlc;
+  final DateTime? lastPlayed;
+  final Duration totalPlayTime;
+  final List<Achievement> achievements;
 
   Game({
     this.id,
@@ -26,8 +30,13 @@ class Game {
     this.type = GameType.iso,
     this.executablePath,
     List<DLC>? dlc,
+    this.lastPlayed,
+    Duration? totalPlayTime,
+    List<Achievement>? achievements,
   }) : dateAdded = dateAdded ?? DateTime.now(),
-       dlc = dlc ?? [];
+       dlc = dlc ?? [],
+       totalPlayTime = totalPlayTime ?? Duration.zero,
+       achievements = achievements ?? [];
 
   Map<String, dynamic> toJson() {
     return {
@@ -40,6 +49,9 @@ class Game {
       'type': type.name,
       'executablePath': executablePath,
       'dlc': dlc.map((d) => d.toJson()).toList(),
+      'lastPlayed': lastPlayed?.toIso8601String(),
+      'totalPlayTime': totalPlayTime.inSeconds,
+      'achievements': achievements.map((a) => a.toJson()).toList(),
     };
   }
 
@@ -61,6 +73,15 @@ class Game {
       dlc: (json['dlc'] as List<dynamic>?)
           ?.map((d) => DLC.fromJson(d as Map<String, dynamic>))
           .toList() ?? [],
+      lastPlayed: json['lastPlayed'] != null
+          ? DateTime.parse(json['lastPlayed'] as String)
+          : null,
+      totalPlayTime: json['totalPlayTime'] != null
+          ? Duration(seconds: json['totalPlayTime'] as int)
+          : null,
+      achievements: (json['achievements'] as List<dynamic>?)
+          ?.map((a) => Achievement.fromJson(a as Map<String, dynamic>))
+          .toList() ?? [],
     );
   }
 
@@ -74,6 +95,9 @@ class Game {
     GameType? type,
     String? executablePath,
     List<DLC>? dlc,
+    DateTime? lastPlayed,
+    Duration? totalPlayTime,
+    List<Achievement>? achievements,
   }) {
     return Game(
       id: id ?? this.id,
@@ -85,6 +109,9 @@ class Game {
       type: type ?? this.type,
       executablePath: executablePath ?? this.executablePath,
       dlc: dlc ?? List.from(this.dlc),
+      lastPlayed: lastPlayed ?? this.lastPlayed,
+      totalPlayTime: totalPlayTime ?? this.totalPlayTime,
+      achievements: achievements ?? List.from(this.achievements),
     );
   }
 

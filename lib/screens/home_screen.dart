@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import 'settings_screen.dart';
+import 'logs_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -14,9 +15,17 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Xenia Launcher'),
         actions: [
+          // Logs button
+          IconButton(
+            icon: const Icon(Icons.article_outlined),
+            onPressed: () => _showLogs(context),
+            tooltip: 'View Logs',
+          ),
+          // Settings button
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => _showSettings(context),
+            tooltip: 'Settings',
           ),
         ],
       ),
@@ -40,6 +49,13 @@ class HomeScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SettingsScreen()),
+    );
+  }
+
+  void _showLogs(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LogsScreen()),
     );
   }
 }

@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/live_games_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/game_stats_provider.dart';
 import '../models/game.dart';
 import '../widgets/game_grid.dart';
-import 'settings_screen.dart';
 import 'dlc_dialog.dart';
 
 class LiveGamesScreen extends StatelessWidget {
@@ -19,30 +19,22 @@ class LiveGamesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Xbox Live Games'),
-        actions: _buildActions(context, liveProvider),
+        actions: [
+          if (liveProvider.config.liveGamesFolder != null)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => _rescanGames(context),
+              tooltip: 'Scan for changes',
+            ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _importGame(context),
+            tooltip: 'Import Game',
+          ),
+        ],
       ),
       body: _buildBody(context, liveProvider, settingsProvider),
     );
-  }
-
-  List<Widget> _buildActions(BuildContext context, LiveGamesProvider liveProvider) {
-    return [
-      if (liveProvider.config.liveGamesFolder != null)
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: () => _rescanGames(context),
-          tooltip: 'Scan for changes',
-        ),
-      IconButton(
-        icon: const Icon(Icons.add),
-        onPressed: () => _importGame(context),
-        tooltip: 'Import Game',
-      ),
-      IconButton(
-        icon: const Icon(Icons.settings),
-        onPressed: () => _showSettings(context),
-      ),
-    ];
   }
 
   Widget _buildBody(
@@ -58,7 +50,7 @@ class LiveGamesScreen extends StatelessWidget {
             const Text('Welcome to Xenia Launcher'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _showSettings(context),
+              onPressed: () => Navigator.pushNamed(context, '/settings'),
               child: const Text('Configure Xenia'),
             ),
           ],
@@ -91,13 +83,6 @@ class LiveGamesScreen extends StatelessWidget {
     );
   }
 
-  void _showSettings(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SettingsScreen()),
-    );
-  }
-
   Future<void> _importGame(BuildContext context) async {
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
     
@@ -112,26 +97,36 @@ class LiveGamesScreen extends StatelessWidget {
       type: FileType.custom,
       allowedExtensions: ['zip'],
       dialogTitle: 'Select Xbox Live Game ZIP',
+      initialDirectory: liveProvider.config.liveGamesFolder,
     );
 
     if (result != null) {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Extracting game...'),
-                ],
+        builder: (context) => Consumer<LiveGamesProvider>(
+          builder: (context, provider, child) {
+            return Center(
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 24),
+                      Text(
+                        provider.importStatus.isNotEmpty 
+                          ? provider.importStatus 
+                          : 'Importing game...',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       );
 
@@ -209,6 +204,7 @@ class LiveGamesScreen extends StatelessWidget {
   Future<void> _runGame(BuildContext context, Game game, String executable) async {
     final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
+    final statsProvider = Provider.of<GameStatsProvider>(context, listen: false);
     final winePrefix = settingsProvider.config.winePrefix;
 
     if (winePrefix == null) {
@@ -231,12 +227,23 @@ class LiveGamesScreen extends StatelessWidget {
       [game.executablePath!],
     );
 
-    if (result.stderr != null && context.mounted) {
+    if (result.stderr != null && result.stderr!.isNotEmpty && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to launch game: ${result.stderr}')),
       );
-    } else {
+      return;
+    }
+
+    if (result.process != null) {
+      // Start tracking with the process
+      await statsProvider.startTracking(game, executable, result.process!);
       await liveProvider.updateGameLastUsedExecutable(game, executable);
+
+      // Wait for process to exit
+      await result.process!.exitCode;
+
+      // Stop tracking after game closes
+      await statsProvider.stopTracking(game);
     }
   }
 }

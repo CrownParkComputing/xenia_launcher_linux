@@ -1,11 +1,17 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as path;
 import '../models/game.dart';
+import '../services/achievement_service.dart';
+import '../providers/settings_provider.dart';
 import 'base_provider.dart';
 
 class IsoGamesProvider extends BaseProvider {
-  IsoGamesProvider(SharedPreferences prefs) : super(prefs);
+  final AchievementService _achievementService = AchievementService();
+  final SettingsProvider _settingsProvider;
+  
+  IsoGamesProvider(SharedPreferences prefs, this._settingsProvider) : super(prefs);
 
   List<Game> get isoGames => games.where((g) => g.isIsoGame).toList();
 
@@ -77,12 +83,44 @@ class IsoGamesProvider extends BaseProvider {
     if (!isoPath.toLowerCase().endsWith('.iso')) return;
 
     final title = isoPath.split(Platform.pathSeparator).last.replaceAll('.iso', '');
-    final game = Game(
-      title: title,
-      path: isoPath,
-      type: GameType.iso,
-    );
+    print('Importing game: $title');
+    print('ISO path: $isoPath');
+
+    try {
+      // Create game with original path
+      final game = Game(
+        title: title,
+        path: isoPath,
+        type: GameType.iso,
+      );
+
+      // Add game first so it's in our library
+      await addGame(game);
     
-    await addGame(game);
+      // Extract achievements if Xenia is configured
+      if (config.baseFolder != null && config.winePrefix != null) {
+        print('Extracting achievements during game import...');
+        final achievements = await _achievementService.extractAchievements(
+          game,
+          config.baseFolder!,
+          config.winePrefix!,
+          _settingsProvider
+        );
+        
+        // Update game with achievements
+        if (achievements.isNotEmpty) {
+          final updatedGame = game.copyWith(achievements: achievements);
+          await updateGame(updatedGame);
+          print('Game updated with ${achievements.length} achievements');
+        } else {
+          print('No achievements found');
+        }
+      } else {
+        print('Xenia not configured, skipping achievement extraction');
+      }
+    } catch (e) {
+      print('Error importing game: $e');
+      rethrow;
+    }
   }
 }
