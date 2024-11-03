@@ -19,7 +19,7 @@ jobs:
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev
+        sudo apt-get install -y cmake ninja-build libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev fuse libfuse2
 
     - uses: subosito/flutter-action@v2
       with:
@@ -81,7 +81,9 @@ jobs:
 
     - name: Build AppImage
       run: |
-        ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir/
+        # Extract appimagetool first to avoid FUSE requirement
+        ./appimagetool-x86_64.AppImage --appimage-extract
+        ARCH=x86_64 ./squashfs-root/AppRun AppDir/
         
     - name: Upload AppImage
       uses: actions/upload-artifact@v3
