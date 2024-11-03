@@ -53,16 +53,16 @@ jobs:
         cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
         
         # Create desktop file with correct paths
-        cat > AppDir/xenia-launcher.desktop << EOF
-[Desktop Entry]
-Name=Xenia Launcher
-Comment=A Xenia Emulator Launcher
-Exec=AppRun
-Icon=xenia-launcher
-Type=Application
-Categories=Game;Emulator;
-Terminal=false
-EOF
+        cat > "AppDir/xenia-launcher.desktop" << 'EOL'
+        [Desktop Entry]
+        Name=Xenia Launcher
+        Comment=A Xenia Emulator Launcher
+        Exec=AppRun
+        Icon=xenia-launcher
+        Type=Application
+        Categories=Game;Emulator;
+        Terminal=false
+        EOL
         
         # Copy desktop file to all required locations
         cp AppDir/xenia-launcher.desktop AppDir/usr/share/applications/
