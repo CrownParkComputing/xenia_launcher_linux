@@ -16,12 +16,12 @@ jobs:
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ninja-build libgtk-3-dev rpm
+        sudo apt-get install -y ninja-build libgtk-3-dev rpm clang cmake pkg-config
 
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.x'
+        flutter-version: '3.13.9'
         channel: 'stable'
 
     - name: Get dependencies
@@ -52,25 +52,34 @@ jobs:
         %description
         A game launcher for the Xenia Xbox 360 emulator
         
-        %prep
-        # No prep needed as files are already in BUILD
-        
         %install
+        mkdir -p %{buildroot}/usr/lib/xenia-launcher
         mkdir -p %{buildroot}/usr/bin
         mkdir -p %{buildroot}/usr/share/applications
-        cp -r %{_builddir}/* %{buildroot}/usr/bin/
         
+        # Copy all files to lib directory
+        cp -r %{_builddir}/* %{buildroot}/usr/lib/xenia-launcher/
+        
+        # Create launcher script
+        cat > %{buildroot}/usr/bin/xenia-launcher << EOF
+        #!/bin/bash
+        exec /usr/lib/xenia-launcher/xenia_launcher "\$@"
+        EOF
+        chmod +x %{buildroot}/usr/bin/xenia-launcher
+        
+        # Create desktop entry
         cat > %{buildroot}/usr/share/applications/xenia-launcher.desktop << EOF
         [Desktop Entry]
         Name=Xenia Launcher
-        Exec=/usr/bin/xenia_launcher
-        Icon=/usr/bin/data/flutter_assets/assets/icon.png
+        Exec=/usr/bin/xenia-launcher
+        Icon=/usr/lib/xenia-launcher/data/flutter_assets/assets/icon.png
         Type=Application
         Categories=Game;
         EOF
         
         %files
-        /usr/bin/*
+        %attr(755,root,root) /usr/bin/xenia-launcher
+        /usr/lib/xenia-launcher
         /usr/share/applications/xenia-launcher.desktop
         
         %changelog
