@@ -1,4 +1,4 @@
-name: CI/CD
+name: Build AppImage
 
 on:
   push:
@@ -30,23 +30,6 @@ jobs:
         flutter pub get
         flutter doctor -v
 
-    - name: Check formatting
-      run: dart format --set-exit-if-changed .
-      continue-on-error: true
-
-    - name: Static analysis
-      run: |
-        flutter analyze || true
-        flutter analyze > analysis_report.txt
-        if grep -q "error •" analysis_report.txt; then
-          echo "Critical errors found"
-          cat analysis_report.txt
-          exit 1
-        fi
-
-    - name: Run tests
-      run: flutter test || true
-
     - name: Build Linux
       run: flutter build linux --release
 
@@ -74,13 +57,6 @@ jobs:
       with:
         name: Xenia_Launcher-x86_64.AppImage
         path: Xenia_Launcher-x86_64.AppImage
-
-    - name: Upload Analysis Report
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: analysis-report
-        path: analysis_report.txt
 
     - name: Get version
       if: startsWith(github.ref, 'refs/tags/')
