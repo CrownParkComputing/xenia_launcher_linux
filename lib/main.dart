@@ -56,6 +56,7 @@ class XeniaLauncher extends StatelessWidget {
     return MaterialApp(
       title: 'Xenia Launcher',
       theme: ThemeData.dark(useMaterial3: true),
+      debugShowCheckedModeBanner: false,
       home: const MainScreen(),
     );
   }
@@ -79,57 +80,66 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            labelType: NavigationRailLabelType.all,
-            leading: const SizedBox(height: 8),
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.disc_full),
-                label: Text('ISO Games'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.cloud_download),
-                label: Text('Xbox Live Games'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.article_outlined),
-                label: Text('Logs'),
-              ),
-            ],
-            trailing: Container(
-              margin: const EdgeInsets.only(bottom: 8.0),
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                  );
-                },
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.settings),
-                    SizedBox(height: 4),
-                    Text('Settings'),
-                  ],
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Colors.white,
+          width: 3,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              labelType: NavigationRailLabelType.all,
+              leading: const SizedBox(height: 8),
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.disc_full),
+                  label: Text('ISO Games'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.cloud_download),
+                  label: Text('Xbox Live Games'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.article_outlined),
+                  label: Text('Logs'),
+                ),
+              ],
+              trailing: Container(
+                margin: const EdgeInsets.only(bottom: 8.0),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                    );
+                  },
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.settings),
+                      SizedBox(height: 4),
+                      Text('Settings'),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const VerticalDivider(thickness: 1, width: 1),
-          Expanded(
-            child: _screens[_selectedIndex],
-          ),
-        ],
+            const VerticalDivider(thickness: 1, width: 1),
+            Expanded(
+              child: _screens[_selectedIndex],
+            ),
+          ],
+        ),
       ),
     );
   }

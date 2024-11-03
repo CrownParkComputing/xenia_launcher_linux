@@ -1,5 +1,5 @@
 Name:           xenia-launcher
-Version:        1.0.0
+Version:        1.0.1
 Release:        1%{?dist}
 Summary:        A Xenia Emulator Launcher
 License:        MIT
@@ -53,5 +53,7 @@ EOF
 /sbin/ldconfig
 
 %changelog
+* Wed Apr 24 2024 Builder <builder@example.com> - 1.0.1-1
+- Update with title bar changes
 * Wed Apr 24 2024 Builder <builder@example.com> - 1.0.0-1
 - Initial RPM release

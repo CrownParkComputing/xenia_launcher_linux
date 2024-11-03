@@ -40,6 +40,14 @@ class _GameCardState extends State<GameCard> {
     _loadGameDetails();
   }
 
+  @override
+  void didUpdateWidget(GameCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.game.title != widget.game.title) {
+      _loadGameDetails();
+    }
+  }
+
   Future<void> _loadGameDetails() async {
     try {
       final details = await _igdbService.getGameDetails(widget.game.title);
@@ -292,6 +300,22 @@ class _GameCardState extends State<GameCard> {
   }
 
   Widget _buildCover() {
+    // First try to use local cover
+    if (widget.game.coverPath != null) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Image.file(
+            File(widget.game.coverPath!),
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            alignment: Alignment.center,
+          ),
+        ),
+      );
+    }
+    // If no local cover, try IGDB cover
     if (_gameDetails?.coverUrl != null) {
       return Container(
         color: Colors.black,
@@ -308,20 +332,7 @@ class _GameCardState extends State<GameCard> {
         ),
       );
     }
-    if (widget.game.coverPath != null) {
-      return Container(
-        color: Colors.black,
-        child: Center(
-          child: Image.file(
-            File(widget.game.coverPath!),
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
-            alignment: Alignment.center,
-          ),
-        ),
-      );
-    }
+    // Fall back to default cover
     return _buildDefaultCover();
   }
 

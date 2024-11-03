@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Xenia Launcher
+Comment=A Xenia Emulator Launcher
+Exec=xenia_launcher
+Icon=xenia-launcher
+Type=Application
+Categories=Game;Emulator;
+Terminal=false
