@@ -19,7 +19,7 @@ jobs:
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev fuse libfuse2 appstream
+        sudo apt-get install -y cmake ninja-build libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev fuse libfuse2 appstream imagemagick
 
     - uses: subosito/flutter-action@v2
       with:
@@ -57,6 +57,12 @@ jobs:
         cp temp_appdir/xenia-launcher.desktop AppDir/
         cp temp_appdir/xenia-launcher.desktop AppDir/usr/share/applications/
         cp temp_appdir/xenia-launcher.svg AppDir/usr/share/icons/hicolor/256x256/apps/
+        
+        # Copy icons to root AppDir as required
+        cp temp_appdir/xenia-launcher.svg AppDir/
+        
+        # Convert SVG to PNG for additional icon format
+        convert AppDir/xenia-launcher.svg -resize 256x256 AppDir/xenia-launcher.png
         
         # Create .DirIcon symlink
         ln -s usr/share/icons/hicolor/256x256/apps/xenia-launcher.svg AppDir/.DirIcon
