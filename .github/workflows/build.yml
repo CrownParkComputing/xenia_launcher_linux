@@ -37,7 +37,8 @@ jobs:
         
     - name: Create RPM spec file
       run: |
-        cat > rpm_build/SPECS/xenia-launcher.spec << 'EOL'
+        CHANGELOG_DATE=$(date '+%a %b %d %Y')
+        cat > rpm_build/SPECS/xenia-launcher.spec << EOF
         Name:           xenia-launcher
         Version:        1.0.0
         Release:        1%{?dist}
@@ -46,8 +47,8 @@ jobs:
         License:        MIT
         URL:            https://github.com/xenia-project/xenia-launcher
         
-        BuildRequires:  gtk3-devel
-        Requires:       gtk3
+        BuildRequires:  libgtk-3-dev
+        Requires:       libgtk-3-0
         
         %description
         A game launcher for the Xenia Xbox 360 emulator
@@ -61,21 +62,21 @@ jobs:
         cp -r %{_builddir}/* %{buildroot}/usr/lib/xenia-launcher/
         
         # Create launcher script
-        cat > %{buildroot}/usr/bin/xenia-launcher << EOF
+        cat > %{buildroot}/usr/bin/xenia-launcher << EOF2
         #!/bin/bash
         exec /usr/lib/xenia-launcher/xenia_launcher "\$@"
-        EOF
+        EOF2
         chmod +x %{buildroot}/usr/bin/xenia-launcher
         
         # Create desktop entry
-        cat > %{buildroot}/usr/share/applications/xenia-launcher.desktop << EOF
+        cat > %{buildroot}/usr/share/applications/xenia-launcher.desktop << EOF2
         [Desktop Entry]
         Name=Xenia Launcher
         Exec=/usr/bin/xenia-launcher
         Icon=/usr/lib/xenia-launcher/data/flutter_assets/assets/icon.png
         Type=Application
         Categories=Game;
-        EOF
+        EOF2
         
         %files
         %attr(755,root,root) /usr/bin/xenia-launcher
@@ -83,9 +84,9 @@ jobs:
         /usr/share/applications/xenia-launcher.desktop
         
         %changelog
-        * $(date '+%a %b %d %Y') GitHub Action <action@github.com> - 1.0.0-1
+        * ${CHANGELOG_DATE} GitHub Action <action@github.com> - 1.0.0-1
         - Initial RPM release
-        EOL
+        EOF
 
     - name: Build RPM package
       run: rpmbuild --define "_topdir $(pwd)/rpm_build" -bb rpm_build/SPECS/xenia-launcher.spec
