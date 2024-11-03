@@ -35,13 +35,31 @@ jobs:
 
     - name: Setup AppDir
       run: |
+        # Create fresh AppDir
+        rm -rf AppDir || true
+        mkdir -p AppDir
+        
+        # Copy existing AppDir structure
+        cp -r AppDir/* AppDir/
+        
+        # Create additional directories if needed
         mkdir -p AppDir/usr/bin
         mkdir -p AppDir/usr/share/applications
         mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        
+        # Copy Flutter build output
         cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
-        cp AppDir/usr/share/applications/xenia-launcher.desktop AppDir/xenia-launcher.desktop
-        cp AppDir/xenia-launcher.svg AppDir/.DirIcon
+        
+        # Ensure AppRun is executable
         chmod +x AppDir/AppRun
+        
+        # Debug output
+        echo "AppDir contents:"
+        ls -la AppDir/
+        echo "AppDir/usr/bin contents:"
+        ls -la AppDir/usr/bin/
+        echo "AppDir/usr/share/applications contents:"
+        ls -la AppDir/usr/share/applications/
 
     - name: Download appimagetool
       run: |
