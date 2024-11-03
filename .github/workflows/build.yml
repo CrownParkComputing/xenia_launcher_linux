@@ -52,20 +52,31 @@ jobs:
         # Copy Flutter build output
         cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
         
-        # Restore application files
-        cp temp_appdir/AppRun AppDir/
-        cp temp_appdir/xenia-launcher.desktop AppDir/
-        cp temp_appdir/xenia-launcher.desktop AppDir/usr/share/applications/
-        cp temp_appdir/xenia-launcher.svg AppDir/usr/share/icons/hicolor/256x256/apps/
+        # Create desktop file with correct paths
+        cat > AppDir/xenia-launcher.desktop << EOF
+[Desktop Entry]
+Name=Xenia Launcher
+Comment=A Xenia Emulator Launcher
+Exec=AppRun
+Icon=xenia-launcher
+Type=Application
+Categories=Game;Emulator;
+Terminal=false
+EOF
         
-        # Copy icons to root AppDir as required
+        # Copy desktop file to all required locations
+        cp AppDir/xenia-launcher.desktop AppDir/usr/share/applications/
+        
+        # Restore and copy other files
+        cp temp_appdir/AppRun AppDir/
+        cp temp_appdir/xenia-launcher.svg AppDir/usr/share/icons/hicolor/256x256/apps/
         cp temp_appdir/xenia-launcher.svg AppDir/
         
         # Convert SVG to PNG for additional icon format
         convert AppDir/xenia-launcher.svg -resize 256x256 AppDir/xenia-launcher.png
         
         # Create .DirIcon symlink
-        ln -s usr/share/icons/hicolor/256x256/apps/xenia-launcher.svg AppDir/.DirIcon
+        ln -s xenia-launcher.svg AppDir/.DirIcon
         
         # Cleanup temp directory
         rm -rf temp_appdir
@@ -74,11 +85,11 @@ jobs:
         chmod +x AppDir/AppRun
         
         # Debug output
-        echo "AppDir contents:"
+        echo "=== AppDir contents ==="
         ls -la AppDir/
-        echo "AppDir/usr/bin contents:"
-        ls -la AppDir/usr/bin/
-        echo "AppDir/usr/share/applications contents:"
+        echo "=== Desktop file contents ==="
+        cat AppDir/xenia-launcher.desktop
+        echo "=== AppDir/usr/share/applications contents ==="
         ls -la AppDir/usr/share/applications/
 
     - name: Download appimagetool
