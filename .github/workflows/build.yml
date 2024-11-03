@@ -109,24 +109,31 @@ jobs:
         name: Xenia_Launcher-x86_64.AppImage
         path: Xenia_Launcher-x86_64.AppImage
 
-    - name: Get version
+    - name: Get version from tag
       if: startsWith(github.ref, 'refs/tags/')
-      id: get_version
+      id: get_tag_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+    - name: Get version from commit
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      id: get_commit_version
+      run: |
+        echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
+      if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')) }}
       with:
+        tag_name: ${{ startsWith(github.ref, 'refs/tags/') && steps.get_tag_version.outputs.VERSION || format('build-{0}', steps.get_commit_version.outputs.VERSION) }}
+        name: ${{ startsWith(github.ref, 'refs/tags/') && format('Release {0}', steps.get_tag_version.outputs.VERSION) || format('Build {0}', steps.get_commit_version.outputs.VERSION) }}
         files: |
           Xenia_Launcher-x86_64.AppImage
           README.md
         body: |
-          Release ${{ steps.get_version.outputs.VERSION }}
+          ${{ startsWith(github.ref, 'refs/tags/') && format('Release {0}', steps.get_tag_version.outputs.VERSION) || format('Automated build from commit {0}', steps.get_commit_version.outputs.VERSION) }}
           
-          Changes in this release:
           ${{ github.event.head_commit.message }}
         draft: false
-        prerelease: false
+        prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
