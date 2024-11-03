@@ -17,22 +17,6 @@ class IsoGamesScreen extends StatelessWidget {
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ISO Games'),
-        actions: [
-          if (isoProvider.config.isoFolder != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => _rescanGames(context),
-              tooltip: 'Scan for changes',
-            ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _importGame(context),
-            tooltip: 'Import Game',
-          ),
-        ],
-      ),
       body: _buildBody(context, isoProvider, settingsProvider),
     );
   }
@@ -107,37 +91,6 @@ class IsoGamesScreen extends StatelessWidget {
           const SnackBar(content: Text('Game imported successfully')),
         );
       }
-    }
-  }
-
-  Future<void> _rescanGames(BuildContext context) async {
-    final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final result = await isoProvider.scanForChanges();
-
-    if (context.mounted) {
-      Navigator.pop(context); // Close loading dialog
-      
-      String message = '';
-      if (result.newGames.isNotEmpty) {
-        message += 'Found ${result.newGames.length} new games\n';
-      }
-      if (result.removedGames.isNotEmpty) {
-        message += 'Removed ${result.removedGames.length} missing games';
-      }
-      if (message.isEmpty) {
-        message = 'No changes found';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
     }
   }
 

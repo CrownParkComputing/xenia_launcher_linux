@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
 import 'providers/settings_provider.dart';
 import 'providers/iso_games_provider.dart';
 import 'providers/live_games_provider.dart';
@@ -13,6 +14,11 @@ import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize window manager
+  await windowManager.ensureInitialized();
+  await windowManager.setTitle('Xenia Launcher');
+  
   final prefs = await SharedPreferences.getInstance();
 
   runApp(
@@ -69,14 +75,53 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WindowListener {
   int _selectedIndex = 0;
+  bool _isMaximized = false;
 
   static const List<Widget> _screens = [
     IsoGamesScreen(),
     LiveGamesScreen(),
     LogsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    _init();
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  void _init() async {
+    // Add this line to override the default close handler
+    await windowManager.setPreventClose(true);
+    setState(() {});
+  }
+
+  @override
+  void onWindowMaximize() {
+    setState(() {
+      _isMaximized = true;
+    });
+  }
+
+  @override
+  void onWindowUnmaximize() {
+    setState(() {
+      _isMaximized = false;
+    });
+  }
+
+  @override
+  void onWindowClose() async {
+    await windowManager.destroy();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +134,37 @@ class _MainScreenState extends State<MainScreen> {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.minimize),
+              onPressed: () async {
+                await windowManager.minimize();
+              },
+              tooltip: 'Minimize',
+            ),
+            IconButton(
+              icon: Icon(_isMaximized ? Icons.fullscreen_exit : Icons.fullscreen),
+              onPressed: () async {
+                if (_isMaximized) {
+                  await windowManager.unmaximize();
+                } else {
+                  await windowManager.maximize();
+                }
+              },
+              tooltip: _isMaximized ? 'Exit Fullscreen' : 'Fullscreen',
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () async {
+                await windowManager.close();
+              },
+              tooltip: 'Close',
+            ),
+          ],
+        ),
         body: Row(
           children: [
             NavigationRail(

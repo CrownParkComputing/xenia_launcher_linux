@@ -7,7 +7,7 @@ import '../models/game.dart';
 import '../services/live_game_service.dart';
 
 class ConfigProvider with ChangeNotifier {
-  XeniaConfig _config = XeniaConfig();
+  Config _config = Config();
   List<Game> _games = [];
   final SharedPreferences _prefs;
 
@@ -16,13 +16,13 @@ class ConfigProvider with ChangeNotifier {
     _loadGames();
   }
 
-  XeniaConfig get config => _config;
+  Config get config => _config;
   List<Game> get games => _games;
 
   Future<void> _loadConfig() async {
     final configStr = _prefs.getString('config');
     if (configStr != null) {
-      _config = XeniaConfig.fromJson(jsonDecode(configStr));
+      _config = Config.fromJson(jsonDecode(configStr));
       notifyListeners();
     }
   }
@@ -113,6 +113,11 @@ class ConfigProvider with ChangeNotifier {
 
   Future<void> setXeniaExecutables(List<String> paths) async {
     _config.xeniaExecutables = paths;
+    await _saveConfig();
+  }
+
+  Future<void> setCardSize(GameCardSize size) async {
+    _config.cardSize = size;
     await _saveConfig();
   }
 

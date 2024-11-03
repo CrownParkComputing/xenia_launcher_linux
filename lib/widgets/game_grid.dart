@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/game.dart';
+import '../models/config.dart';
+import '../providers/settings_provider.dart';
 import 'game_card.dart';
 
 class GameGrid extends StatelessWidget {
   final List<Game> games;
-  final String? Function(String) getExecutableDisplayName;
+  final String? Function(Game) getExecutableDisplayName;
   final void Function(Game) onGameTap;
   final void Function(Game) onGameMoreTap;
   final void Function(Game) onGameDelete;
-  final VoidCallback onImportTap;
+  final VoidCallback? onImportTap;
 
   const GameGrid({
     super.key,
@@ -17,48 +20,58 @@ class GameGrid extends StatelessWidget {
     required this.onGameTap,
     required this.onGameMoreTap,
     required this.onGameDelete,
-    required this.onImportTap,
+    this.onImportTap,
   });
+
+  double _getMaxCrossAxisExtent(GameCardSize size) {
+    switch (size) {
+      case GameCardSize.small:
+        return 200;
+      case GameCardSize.medium:
+        return 260;
+      case GameCardSize.large:
+        return 320;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (games.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.gamepad_outlined, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              'No games imported yet',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: onImportTap,
-              icon: const Icon(Icons.add),
-              label: const Text('Import Game'),
-            ),
-          ],
-        ),
-      );
-    }
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+    final cardSize = settingsProvider.config.cardSize;
 
     return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 3/4,
+      padding: const EdgeInsets.all(16),
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: _getMaxCrossAxisExtent(cardSize),
+        childAspectRatio: 0.7,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: games.length,
+      itemCount: games.length + (onImportTap != null ? 1 : 0),
       itemBuilder: (context, index) {
+        if (onImportTap != null && index == games.length) {
+          // Add Game Card
+          return Card(
+            child: InkWell(
+              onTap: onImportTap,
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_circle_outline, size: 48),
+                    SizedBox(height: 8),
+                    Text('Add Game'),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         final game = games[index];
         return GameCard(
           game: game,
-          executableDisplayName: game.lastUsedExecutable != null
-              ? getExecutableDisplayName(game.lastUsedExecutable!)
-              : null,
+          executableDisplayName: getExecutableDisplayName(game),
           onPlayTap: () => onGameTap(game),
           onDLCTap: () => onGameMoreTap(game),
           onDeleteTap: () => onGameDelete(game),

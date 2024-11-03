@@ -5,7 +5,7 @@ import '../models/config.dart';
 import '../models/game.dart';
 
 class BaseProvider with ChangeNotifier {
-  XeniaConfig _config = XeniaConfig();
+  Config _config = Config();
   List<Game> _games = [];
   final SharedPreferences _prefs;
 
@@ -14,13 +14,13 @@ class BaseProvider with ChangeNotifier {
     _loadGames();
   }
 
-  XeniaConfig get config => _config;
+  Config get config => _config;
   List<Game> get games => _games;
 
   Future<void> _loadConfig() async {
     final configStr = _prefs.getString('config');
     if (configStr != null) {
-      _config = XeniaConfig.fromJson(jsonDecode(configStr));
+      _config = Config.fromJson(jsonDecode(configStr));
       notifyListeners();
     }
   }
@@ -83,8 +83,9 @@ class BaseProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  String? getExecutableDisplayName(String path) {
-    final fileName = path.split('/').last.toLowerCase();
+  String? getExecutableDisplayName(Game game) {
+    if (game.lastUsedExecutable == null) return null;
+    final fileName = game.lastUsedExecutable!.split('/').last.toLowerCase();
     if (fileName == 'xenia_canary.exe') return 'Xenia Canary';
     if (fileName == 'xenia_canary_netplay.exe') return 'Xenia Netplay';
     if (fileName == 'xenia.exe') return 'Xenia Stable';
