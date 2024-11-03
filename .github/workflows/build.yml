@@ -35,20 +35,33 @@ jobs:
 
     - name: Setup AppDir
       run: |
-        # Create fresh AppDir
-        rm -rf AppDir || true
-        mkdir -p AppDir
+        # Store original files
+        mkdir -p temp_appdir
+        cp AppDir/AppRun temp_appdir/
+        cp AppDir/usr/share/applications/xenia-launcher.desktop temp_appdir/
+        cp AppDir/xenia-launcher.svg temp_appdir/
         
-        # Copy existing AppDir structure
-        cp -r AppDir/* AppDir/
+        # Remove existing AppDir
+        rm -rf AppDir
         
-        # Create additional directories if needed
+        # Create fresh AppDir structure
         mkdir -p AppDir/usr/bin
         mkdir -p AppDir/usr/share/applications
         mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
         
         # Copy Flutter build output
         cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+        
+        # Restore application files
+        cp temp_appdir/AppRun AppDir/
+        cp temp_appdir/xenia-launcher.desktop AppDir/usr/share/applications/
+        cp temp_appdir/xenia-launcher.svg AppDir/usr/share/icons/hicolor/256x256/apps/
+        
+        # Create .DirIcon symlink
+        ln -s usr/share/icons/hicolor/256x256/apps/xenia-launcher.svg AppDir/.DirIcon
+        
+        # Cleanup temp directory
+        rm -rf temp_appdir
         
         # Ensure AppRun is executable
         chmod +x AppDir/AppRun
