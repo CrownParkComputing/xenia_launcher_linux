@@ -1,143 +1,94 @@
-name: Build AppImage
+name: Build and Package
 
 on:
   push:
-    branches: [ main, master ]
-    tags:
-      - 'v*'
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
-
-permissions:
-  contents: write
-  packages: write
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
 
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev fuse libfuse2 appstream imagemagick gsfonts fonts-urw-base35
+        sudo apt-get install -y ninja-build libgtk-3-dev rpm
 
-    - uses: subosito/flutter-action@v2
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.10.0'
+        flutter-version: '3.x'
+        channel: 'stable'
 
-    - name: Install dependencies
-      run: |
-        flutter pub get
-        flutter doctor -v
+    - name: Get dependencies
+      run: flutter pub get
 
-    - name: Build Linux
+    - name: Build Linux Release
       run: flutter build linux --release
 
-    - name: Setup AppDir
+    - name: Create RPM structure
       run: |
-        # Store original files
-        mkdir -p temp_appdir
-        cp AppDir/AppRun temp_appdir/
-        cp AppDir/usr/share/applications/xenia-launcher.desktop temp_appdir/
-        cp AppDir/xenia-launcher.svg temp_appdir/
+        mkdir -p rpm_build/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        cp -r build/linux/x64/release/bundle/* rpm_build/BUILD/
         
-        # Remove existing AppDir
-        rm -rf AppDir
+    - name: Create RPM spec file
+      run: |
+        cat > rpm_build/SPECS/xenia-launcher.spec << 'EOL'
+        Name:           xenia-launcher
+        Version:        1.0.0
+        Release:        1%{?dist}
+        Summary:        Xenia Game Launcher
         
-        # Create fresh AppDir structure
-        mkdir -p AppDir/usr/bin
-        mkdir -p AppDir/usr/share/applications
-        mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        License:        MIT
+        URL:            https://github.com/xenia-project/xenia-launcher
         
-        # Copy Flutter build output
-        cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+        BuildRequires:  gtk3-devel
+        Requires:       gtk3
         
-        # Create desktop file with correct paths
-        cat > "AppDir/xenia-launcher.desktop" << 'EOL'
+        %description
+        A game launcher for the Xenia Xbox 360 emulator
+        
+        %prep
+        # No prep needed as files are already in BUILD
+        
+        %install
+        mkdir -p %{buildroot}/usr/bin
+        mkdir -p %{buildroot}/usr/share/applications
+        cp -r %{_builddir}/* %{buildroot}/usr/bin/
+        
+        cat > %{buildroot}/usr/share/applications/xenia-launcher.desktop << EOF
         [Desktop Entry]
         Name=Xenia Launcher
-        Comment=A Xenia Emulator Launcher
-        Exec=AppRun
-        Icon=xenia-launcher
+        Exec=/usr/bin/xenia_launcher
+        Icon=/usr/bin/data/flutter_assets/assets/icon.png
         Type=Application
-        Categories=Game;Emulator;
-        Terminal=false
+        Categories=Game;
+        EOF
+        
+        %files
+        /usr/bin/*
+        /usr/share/applications/xenia-launcher.desktop
+        
+        %changelog
+        * $(date '+%a %b %d %Y') GitHub Action <action@github.com> - 1.0.0-1
+        - Initial RPM release
         EOL
-        
-        # Copy desktop file to all required locations
-        cp AppDir/xenia-launcher.desktop AppDir/usr/share/applications/
-        
-        # Restore and copy other files
-        cp temp_appdir/AppRun AppDir/
-        cp temp_appdir/xenia-launcher.svg AppDir/usr/share/icons/hicolor/256x256/apps/
-        cp temp_appdir/xenia-launcher.svg AppDir/
-        
-        # Convert SVG to PNG for additional icon format without text annotations
-        convert AppDir/xenia-launcher.svg -background none -resize 256x256 AppDir/xenia-launcher.png
-        
-        # Create .DirIcon symlink
-        ln -s xenia-launcher.svg AppDir/.DirIcon
-        
-        # Cleanup temp directory
-        rm -rf temp_appdir
-        
-        # Ensure AppRun is executable
-        chmod +x AppDir/AppRun
-        
-        # Debug output
-        echo "=== AppDir contents ==="
-        ls -la AppDir/
-        echo "=== Desktop file contents ==="
-        cat AppDir/xenia-launcher.desktop
-        echo "=== AppDir/usr/share/applications contents ==="
-        ls -la AppDir/usr/share/applications/
 
-    - name: Download appimagetool
-      run: |
-        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-        chmod +x appimagetool-x86_64.AppImage
+    - name: Build RPM package
+      run: rpmbuild --define "_topdir $(pwd)/rpm_build" -bb rpm_build/SPECS/xenia-launcher.spec
 
-    - name: Build AppImage
-      run: |
-        # Extract appimagetool first to avoid FUSE requirement
-        ./appimagetool-x86_64.AppImage --appimage-extract
-        ARCH=x86_64 ./squashfs-root/AppRun AppDir/
-        
-    - name: Upload AppImage
+    - name: Upload RPM artifact
       uses: actions/upload-artifact@v3
       with:
-        name: Xenia_Launcher-x86_64.AppImage
-        path: Xenia_Launcher-x86_64.AppImage
+        name: xenia-launcher-rpm
+        path: rpm_build/RPMS/x86_64/xenia-launcher-*.rpm
 
-    - name: Get version from tag
-      if: startsWith(github.ref, 'refs/tags/')
-      id: get_tag_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-    - name: Get version from commit
-      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      id: get_commit_version
-      run: |
-        echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')) }}
+    - name: Upload Linux bundle artifact
+      uses: actions/upload-artifact@v3
       with:
-        tag_name: ${{ startsWith(github.ref, 'refs/tags/') && steps.get_tag_version.outputs.VERSION || format('build-{0}', steps.get_commit_version.outputs.VERSION) }}
-        name: ${{ startsWith(github.ref, 'refs/tags/') && format('Release {0}', steps.get_tag_version.outputs.VERSION) || format('Build {0}', steps.get_commit_version.outputs.VERSION) }}
-        files: |
-          Xenia_Launcher-x86_64.AppImage
-          README.md
-        body: |
-          ${{ startsWith(github.ref, 'refs/tags/') && format('Release {0}', steps.get_tag_version.outputs.VERSION) || format('Automated build from commit {0}', steps.get_commit_version.outputs.VERSION) }}
-          
-          ${{ github.event.head_commit.message }}
-        draft: false
-        prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: xenia-launcher-linux
+        path: build/linux/x64/release/bundle
