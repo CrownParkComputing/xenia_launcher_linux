@@ -29,7 +29,8 @@ class Achievement {
     );
   }
 
-  factory Achievement.fromLogLine(String id, String title, String description, String gamerscore) {
+  factory Achievement.fromLogLine(
+      String id, String title, String description, String gamerscore) {
     // Handle empty or invalid gamerscore values
     int score = 0;
     try {

@@ -14,11 +14,11 @@ import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize window manager
   await windowManager.ensureInitialized();
   await windowManager.setTitle('Xenia Launcher');
-  
+
   final prefs = await SharedPreferences.getInstance();
 
   runApp(
@@ -32,14 +32,16 @@ void main() async {
             prefs,
             Provider.of<SettingsProvider>(context, listen: false),
           ),
-          update: (context, settings, previous) => previous ?? IsoGamesProvider(prefs, settings),
+          update: (context, settings, previous) =>
+              previous ?? IsoGamesProvider(prefs, settings),
         ),
         ChangeNotifierProxyProvider<SettingsProvider, LiveGamesProvider>(
           create: (context) => LiveGamesProvider(
             prefs,
             Provider.of<SettingsProvider>(context, listen: false),
           ),
-          update: (context, settings, previous) => previous ?? LiveGamesProvider(prefs, settings),
+          update: (context, settings, previous) =>
+              previous ?? LiveGamesProvider(prefs, settings),
         ),
         ChangeNotifierProvider(
           create: (context) {
@@ -146,7 +148,8 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
               tooltip: 'Minimize',
             ),
             IconButton(
-              icon: Icon(_isMaximized ? Icons.fullscreen_exit : Icons.fullscreen),
+              icon:
+                  Icon(_isMaximized ? Icons.fullscreen_exit : Icons.fullscreen),
               onPressed: () async {
                 if (_isMaximized) {
                   await windowManager.unmaximize();
@@ -196,7 +199,8 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const SettingsScreen()),
                     );
                   },
                   child: const Column(

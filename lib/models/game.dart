@@ -1,10 +1,7 @@
 import 'dlc.dart';
 import 'achievement.dart';
 
-enum GameType {
-  iso,
-  live
-}
+enum GameType { iso, live }
 
 class Game {
   final int? id;
@@ -33,10 +30,10 @@ class Game {
     this.lastPlayed,
     Duration? totalPlayTime,
     List<Achievement>? achievements,
-  }) : dateAdded = dateAdded ?? DateTime.now(),
-       dlc = dlc ?? [],
-       totalPlayTime = totalPlayTime ?? Duration.zero,
-       achievements = achievements ?? [];
+  })  : dateAdded = dateAdded ?? DateTime.now(),
+        dlc = dlc ?? [],
+        totalPlayTime = totalPlayTime ?? Duration.zero,
+        achievements = achievements ?? [];
 
   Map<String, dynamic> toJson() {
     return {
@@ -62,17 +59,18 @@ class Game {
       path: json['path'] as String? ?? '',
       coverPath: json['coverPath'] as String?,
       lastUsedExecutable: json['lastUsedExecutable'] as String?,
-      dateAdded: json['dateAdded'] != null 
-        ? DateTime.parse(json['dateAdded'] as String)
-        : null,
+      dateAdded: json['dateAdded'] != null
+          ? DateTime.parse(json['dateAdded'] as String)
+          : null,
       type: GameType.values.firstWhere(
         (e) => e.name == (json['type'] as String? ?? 'iso'),
         orElse: () => GameType.iso,
       ),
       executablePath: json['executablePath'] as String?,
       dlc: (json['dlc'] as List<dynamic>?)
-          ?.map((d) => DLC.fromJson(d as Map<String, dynamic>))
-          .toList() ?? [],
+              ?.map((d) => DLC.fromJson(d as Map<String, dynamic>))
+              .toList() ??
+          [],
       lastPlayed: json['lastPlayed'] != null
           ? DateTime.parse(json['lastPlayed'] as String)
           : null,
@@ -80,8 +78,9 @@ class Game {
           ? Duration(seconds: json['totalPlayTime'] as int)
           : null,
       achievements: (json['achievements'] as List<dynamic>?)
-          ?.map((a) => Achievement.fromJson(a as Map<String, dynamic>))
-          .toList() ?? [],
+              ?.map((a) => Achievement.fromJson(a as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -118,17 +117,17 @@ class Game {
   static String cleanGameTitle(String zipName) {
     // Remove file extension
     var title = zipName.replaceAll(RegExp(r'\.zip$', caseSensitive: false), '');
-    
+
     // Remove anything in parentheses
     title = title.replaceAll(RegExp(r'\s*\([^)]*\)'), '');
-    
+
     // Remove special characters and multiple spaces
     title = title.replaceAll(RegExp(r'[^\w\s-]'), '');
     title = title.replaceAll(RegExp(r'\s+'), ' ');
-    
+
     // Trim whitespace
     title = title.trim();
-    
+
     return title;
   }
 

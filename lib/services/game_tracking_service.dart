@@ -17,12 +17,13 @@ class GameTrackingService {
   void setStatsProvider(GameStatsProvider provider) {
     _statsProvider = provider;
   }
-  
-  Future<void> startTracking(Game game, String xeniaPath, Process process) async {
+
+  Future<void> startTracking(
+      Game game, String xeniaPath, Process process) async {
     print('Starting game tracking for ${game.title}');
     _gameStartTime = DateTime.now();
     _gameProcess = process;
-    
+
     // Start playtime timer
     _playTimeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       // This will be used to update total playtime when game ends
@@ -44,10 +45,10 @@ class GameTrackingService {
       try {
         // Try graceful termination first
         _gameProcess!.kill(ProcessSignal.sigterm);
-        
+
         // Wait briefly for process to exit
         await Future.delayed(const Duration(seconds: 2));
-        
+
         // Force kill if still running
         try {
           final running = _gameProcess!.kill(ProcessSignal.sigterm);
@@ -64,15 +65,16 @@ class GameTrackingService {
 
     if (_gameStartTime != null) {
       final playSession = DateTime.now().difference(_gameStartTime!);
-      
+
       // Update game with new statistics
       final updatedGame = game.copyWith(
         lastPlayed: DateTime.now(),
         totalPlayTime: game.totalPlayTime + playSession,
       );
-      
+
       await _statsProvider?.updateGameStats(updatedGame);
-      print('Updated play time: ${updatedGame.totalPlayTime.inMinutes} minutes');
+      print(
+          'Updated play time: ${updatedGame.totalPlayTime.inMinutes} minutes');
     }
 
     _gameStartTime = null;

@@ -38,7 +38,8 @@ class ConfigProvider with ChangeNotifier {
     }
   }
 
-  Future<({List<Game> newGames, List<Game> removedGames})> scanForChanges() async {
+  Future<({List<Game> newGames, List<Game> removedGames})>
+      scanForChanges() async {
     final List<Game> newGames = [];
     final List<Game> removedGames = [];
 
@@ -54,10 +55,11 @@ class ConfigProvider with ChangeNotifier {
         if (entity is File && entity.path.toLowerCase().endsWith('.iso')) {
           final path = entity.path;
           existingFiles.add(path);
-          
+
           // Check if game is already in library
           if (!_games.any((g) => g.path == path)) {
-            final title = path.split(Platform.pathSeparator).last.replaceAll('.iso', '');
+            final title =
+                path.split(Platform.pathSeparator).last.replaceAll('.iso', '');
             final game = Game(
               title: title,
               path: path,
@@ -77,13 +79,13 @@ class ConfigProvider with ChangeNotifier {
 
       // Remove games that no longer exist
       if (removedGames.isNotEmpty) {
-        _games.removeWhere((game) => removedGames.any((g) => g.path == game.path));
+        _games.removeWhere(
+            (game) => removedGames.any((g) => g.path == game.path));
         await _saveGames();
       }
-      
+
       // Sort new games by title
       newGames.sort((a, b) => a.title.compareTo(b.title));
-      
     } catch (e) {
       debugPrint('Error scanning for games: $e');
     }
@@ -126,7 +128,7 @@ class ConfigProvider with ChangeNotifier {
     if (_games.any((g) => g.path == game.path)) {
       return;
     }
-    
+
     _games.insert(0, game); // Add to beginning of list
     await _saveGames();
   }
@@ -139,7 +141,7 @@ class ConfigProvider with ChangeNotifier {
         added = true;
       }
     }
-    
+
     if (added) {
       _games.sort((a, b) => a.title.compareTo(b.title));
       await _saveGames();
@@ -154,7 +156,8 @@ class ConfigProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateGameLastUsedExecutable(Game game, String executable) async {
+  Future<void> updateGameLastUsedExecutable(
+      Game game, String executable) async {
     final updatedGame = game.copyWith(lastUsedExecutable: executable);
     await updateGame(updatedGame);
   }
@@ -170,7 +173,8 @@ class ConfigProvider with ChangeNotifier {
   }
 
   Future<void> _saveGames() async {
-    await _prefs.setString('games', jsonEncode(_games.map((g) => g.toJson()).toList()));
+    await _prefs.setString(
+        'games', jsonEncode(_games.map((g) => g.toJson()).toList()));
     notifyListeners();
   }
 

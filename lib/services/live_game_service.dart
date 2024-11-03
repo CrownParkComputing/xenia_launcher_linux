@@ -4,15 +4,16 @@ import 'package:path/path.dart' as path;
 import '../models/game.dart';
 
 class LiveGameService {
-  static Future<Game?> extractGame(String zipPath, String destinationDir) async {
+  static Future<Game?> extractGame(
+      String zipPath, String destinationDir) async {
     try {
       final bytes = await File(zipPath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
-      
+
       // Get game title from zip filename
       final zipName = path.basename(zipPath);
       final gameTitle = Game.cleanGameTitle(zipName);
-      
+
       // Create game directory
       final gameDir = Directory(path.join(destinationDir, gameTitle));
       if (!gameDir.existsSync()) {
@@ -26,16 +27,16 @@ class LiveGameService {
         if (file.isFile) {
           final data = file.content as List<int>;
           final filePath = path.join(gameDir.path, filename);
-          
+
           // Create parent directory if it doesn't exist
           final parentDir = Directory(path.dirname(filePath));
           if (!parentDir.existsSync()) {
             parentDir.createSync(recursive: true);
           }
-          
+
           // Write file
           File(filePath).writeAsBytesSync(data);
-          
+
           // Check if this is the executable (file with no extension in deepest subfolder)
           if (path.extension(filename).isEmpty) {
             final currentDepth = filename.split('/').length;
@@ -60,7 +61,8 @@ class LiveGameService {
     } catch (e) {
       print('Error extracting game: $e');
       // Clean up if extraction failed
-      final gameDir = Directory(path.join(destinationDir, Game.cleanGameTitle(path.basename(zipPath))));
+      final gameDir = Directory(path.join(
+          destinationDir, Game.cleanGameTitle(path.basename(zipPath))));
       if (gameDir.existsSync()) {
         await gameDir.delete(recursive: true);
       }
@@ -74,7 +76,8 @@ class LiveGameService {
 
     await for (final entity in Directory(gameDir).list(recursive: true)) {
       if (entity is File && path.extension(entity.path).isEmpty) {
-        final depth = path.split(path.relative(entity.path, from: gameDir)).length;
+        final depth =
+            path.split(path.relative(entity.path, from: gameDir)).length;
         if (depth > maxDepth) {
           maxDepth = depth;
           executablePath = entity.path;
@@ -97,7 +100,7 @@ class LiveGameService {
   static Future<List<Game>> scanLiveGamesDirectory(String directory) async {
     final games = <Game>[];
     final dir = Directory(directory);
-    
+
     if (!dir.existsSync()) return games;
 
     await for (final entity in dir.list()) {

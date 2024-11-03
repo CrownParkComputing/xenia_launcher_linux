@@ -48,7 +48,8 @@ class SettingsProvider extends BaseProvider {
     notifyListeners();
   }
 
-  Future<void> updateExecutableVersion(String executablePath, String version) async {
+  Future<void> updateExecutableVersion(
+      String executablePath, String version) async {
     config.xeniaVersions[executablePath] = version;
     await saveConfig();
     notifyListeners();
@@ -56,21 +57,21 @@ class SettingsProvider extends BaseProvider {
 
   Future<bool> checkForUpdates() async {
     if (_isCheckingUpdate) return false;
-    
+
     _isCheckingUpdate = true;
     _setUpdateStatus('Checking for updates...');
     notifyListeners();
 
     try {
       _latestVersion = await _xeniaUpdateService.getLatestCanaryVersion();
-      
+
       if (_latestVersion != null && config.xeniaExecutables.isNotEmpty) {
         // Check version of first canary executable
         final canaryExe = config.xeniaExecutables.firstWhere(
           (exe) => exe.toLowerCase().contains('canary'),
           orElse: () => config.xeniaExecutables.first,
         );
-        
+
         final currentVersion = config.xeniaVersions[canaryExe];
         if (currentVersion == null) {
           _setUpdateStatus('Version information not available');
@@ -78,10 +79,10 @@ class SettingsProvider extends BaseProvider {
         }
 
         _isCheckingUpdate = false;
-        _setUpdateStatus(currentVersion == _latestVersion 
-          ? 'Already up to date' 
-          : 'Update available: $_latestVersion');
-        
+        _setUpdateStatus(currentVersion == _latestVersion
+            ? 'Already up to date'
+            : 'Update available: $_latestVersion');
+
         return _latestVersion != currentVersion;
       }
     } catch (e) {
@@ -102,18 +103,22 @@ class SettingsProvider extends BaseProvider {
 
     try {
       _setUpdateStatus('Downloading update...');
-      final success = await _xeniaUpdateService.downloadUpdate(
-        config.xeniaExecutables.first
-      );
-      
+      final success = await _xeniaUpdateService
+          .downloadUpdate(config.xeniaExecutables.first);
+
       if (success) {
         _setUpdateStatus('Update downloaded, rescanning executables...');
-        
+
         // Rescan executables in the base folder
         if (config.baseFolder != null) {
-          final executableNames = ['xenia_canary.exe', 'xenia.exe', 'xenia_canary_netplay.exe'];
-          final executables = await scanForExecutables(config.baseFolder!, executableNames);
-          
+          final executableNames = [
+            'xenia_canary.exe',
+            'xenia.exe',
+            'xenia_canary_netplay.exe'
+          ];
+          final executables =
+              await scanForExecutables(config.baseFolder!, executableNames);
+
           if (executables.isNotEmpty) {
             await setXeniaExecutables(executables);
             // Test each executable to get its version
@@ -127,13 +132,13 @@ class SettingsProvider extends BaseProvider {
             _setUpdateStatus('Update completed but no executables found');
           }
         }
-        
+
         // Trigger a new version check
         await checkForUpdates();
       } else {
         _setUpdateStatus('Update failed');
       }
-      
+
       return success;
     } catch (e) {
       debugPrint('Error updating Xenia: $e');
@@ -148,13 +153,17 @@ class SettingsProvider extends BaseProvider {
       log('Testing Xenia executable: $executable');
       log('Using WINEPREFIX: $winePrefix');
       log('Launch command: WINEPREFIX=$winePrefix wine $executable');
-      
-      process = await Process.start('wine', [
-        executable,
-      ], environment: {
-        'WINEPREFIX': winePrefix,
-        'WINEDEBUG': '-all',
-      }, runInShell: true);
+
+      process = await Process.start(
+          'wine',
+          [
+            executable,
+          ],
+          environment: {
+            'WINEPREFIX': winePrefix,
+            'WINEDEBUG': '-all',
+          },
+          runInShell: true);
 
       // Get the directory containing the executable
       final execDir = path.dirname(executable);
@@ -167,14 +176,15 @@ class SettingsProvider extends BaseProvider {
       if (File(logPath).existsSync()) {
         final logContent = await File(logPath).readAsString();
         final lines = logContent.split('\n');
-        
+
         // Look for version in first line
         if (lines.isNotEmpty) {
           final firstLine = lines.first;
           if (firstLine.contains('Build:')) {
             final buildIndex = firstLine.indexOf('Build:');
             if (buildIndex != -1) {
-              final version = firstLine.substring(buildIndex + 'Build: '.length).trim();
+              final version =
+                  firstLine.substring(buildIndex + 'Build: '.length).trim();
               log('Found version: $version');
               await updateExecutableVersion(executable, version);
             }
@@ -195,10 +205,10 @@ class SettingsProvider extends BaseProvider {
         try {
           // Try graceful termination first
           process.kill(ProcessSignal.sigterm);
-          
+
           // Wait briefly for process to exit
           await Future.delayed(const Duration(seconds: 2));
-          
+
           // Force kill if still running
           try {
             final running = process.kill(ProcessSignal.sigterm);
@@ -208,7 +218,7 @@ class SettingsProvider extends BaseProvider {
           } catch (e) {
             // Process already terminated
           }
-          
+
           // Ensure streams are properly closed
           await process.stdout.drain();
           await process.stderr.drain();
@@ -219,14 +229,16 @@ class SettingsProvider extends BaseProvider {
     }
   }
 
-  Future<List<String>> scanForExecutables(String basePath, List<String> executableNames) async {
+  Future<List<String>> scanForExecutables(
+      String basePath, List<String> executableNames) async {
     final executables = <String>[];
-    
+
     try {
       final dir = Directory(basePath);
       await for (final entity in dir.list(recursive: true)) {
         if (entity is File) {
-          final fileName = entity.path.split(Platform.pathSeparator).last.toLowerCase();
+          final fileName =
+              entity.path.split(Platform.pathSeparator).last.toLowerCase();
           if (executableNames.contains(fileName.toLowerCase())) {
             executables.add(entity.path);
           }
@@ -235,7 +247,7 @@ class SettingsProvider extends BaseProvider {
     } catch (e) {
       debugPrint('Error scanning for executables: $e');
     }
-    
+
     return executables;
   }
 
@@ -248,21 +260,27 @@ class SettingsProvider extends BaseProvider {
     try {
       final gamePath = args.first;
       final command = 'WINEPREFIX=$winePrefix wine $executable $gamePath';
-      
+
       log('Launching game with Xenia');
       log('Launch command: $command');
-      
-      process = await Process.start('wine', [
-        executable,
-        gamePath,
-      ], environment: {
-        'WINEPREFIX': winePrefix,
-      }, runInShell: true);
+
+      process = await Process.start(
+          'wine',
+          [
+            executable,
+            gamePath,
+          ],
+          environment: {
+            'WINEPREFIX': winePrefix,
+          },
+          runInShell: true);
 
       // Start collecting output streams but don't wait for completion
       // This allows the process to continue running while we monitor output
-      final stdoutFuture = process.stdout.transform(const SystemEncoding().decoder).join();
-      final stderrFuture = process.stderr.transform(const SystemEncoding().decoder).join();
+      final stdoutFuture =
+          process.stdout.transform(const SystemEncoding().decoder).join();
+      final stderrFuture =
+          process.stderr.transform(const SystemEncoding().decoder).join();
 
       // Wait briefly to catch immediate errors
       final stderr = await stderrFuture.timeout(
@@ -284,7 +302,7 @@ class SettingsProvider extends BaseProvider {
       );
     } catch (e) {
       log('Error running executable: $e');
-      
+
       // Ensure process cleanup on error
       if (process != null) {
         try {
@@ -295,7 +313,7 @@ class SettingsProvider extends BaseProvider {
           // Ignore cleanup errors
         }
       }
-      
+
       return (stdout: null, stderr: e.toString(), process: null);
     }
   }

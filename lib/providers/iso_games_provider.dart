@@ -10,12 +10,14 @@ import 'base_provider.dart';
 class IsoGamesProvider extends BaseProvider {
   final AchievementService _achievementService = AchievementService();
   final SettingsProvider _settingsProvider;
-  
-  IsoGamesProvider(SharedPreferences prefs, this._settingsProvider) : super(prefs);
+
+  IsoGamesProvider(SharedPreferences prefs, this._settingsProvider)
+      : super(prefs);
 
   List<Game> get isoGames => games.where((g) => g.isIsoGame).toList();
 
-  Future<({List<Game> newGames, List<Game> removedGames})> scanForChanges() async {
+  Future<({List<Game> newGames, List<Game> removedGames})>
+      scanForChanges() async {
     final List<Game> newGames = [];
     final List<Game> removedGames = [];
 
@@ -31,9 +33,10 @@ class IsoGamesProvider extends BaseProvider {
         if (entity is File && entity.path.toLowerCase().endsWith('.iso')) {
           final path = entity.path;
           existingFiles.add(path);
-          
+
           if (!games.any((g) => g.path == path)) {
-            final title = path.split(Platform.pathSeparator).last.replaceAll('.iso', '');
+            final title =
+                path.split(Platform.pathSeparator).last.replaceAll('.iso', '');
             final game = Game(
               title: title,
               path: path,
@@ -57,10 +60,9 @@ class IsoGamesProvider extends BaseProvider {
           await removeGame(game);
         }
       }
-      
+
       // Sort new games by title
       newGames.sort((a, b) => a.title.compareTo(b.title));
-      
     } catch (e) {
       debugPrint('Error scanning for ISO games: $e');
     }
@@ -73,7 +75,8 @@ class IsoGamesProvider extends BaseProvider {
     await saveConfig();
   }
 
-  Future<void> updateGameLastUsedExecutable(Game game, String executable) async {
+  Future<void> updateGameLastUsedExecutable(
+      Game game, String executable) async {
     if (!game.isIsoGame) return;
     final updatedGame = game.copyWith(lastUsedExecutable: executable);
     await updateGame(updatedGame);
@@ -82,7 +85,8 @@ class IsoGamesProvider extends BaseProvider {
   Future<void> importGame(String isoPath) async {
     if (!isoPath.toLowerCase().endsWith('.iso')) return;
 
-    final title = isoPath.split(Platform.pathSeparator).last.replaceAll('.iso', '');
+    final title =
+        isoPath.split(Platform.pathSeparator).last.replaceAll('.iso', '');
     print('Importing game: $title');
     print('ISO path: $isoPath');
 
@@ -96,17 +100,13 @@ class IsoGamesProvider extends BaseProvider {
 
       // Add game first so it's in our library
       await addGame(game);
-    
+
       // Extract achievements if Xenia is configured
       if (config.baseFolder != null && config.winePrefix != null) {
         print('Extracting achievements during game import...');
         final achievements = await _achievementService.extractAchievements(
-          game,
-          config.baseFolder!,
-          config.winePrefix!,
-          _settingsProvider
-        );
-        
+            game, config.baseFolder!, config.winePrefix!, _settingsProvider);
+
         // Update game with achievements
         if (achievements.isNotEmpty) {
           final updatedGame = game.copyWith(achievements: achievements);

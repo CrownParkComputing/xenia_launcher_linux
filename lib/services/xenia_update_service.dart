@@ -6,8 +6,9 @@ import 'package:archive/archive.dart';
 import '../screens/logs_screen.dart' show log;
 
 class XeniaUpdateService {
-  static const String canaryReleaseUrl = 'https://api.github.com/repos/xenia-canary/xenia-canary/releases/tags/experimental';
-  
+  static const String canaryReleaseUrl =
+      'https://api.github.com/repos/xenia-canary/xenia-canary/releases/tags/experimental';
+
   Future<String?> getLatestCanaryVersion() async {
     try {
       log('Checking latest version from GitHub...');
@@ -29,14 +30,14 @@ class XeniaUpdateService {
   Future<String?> getCurrentVersion(String xeniaPath) async {
     try {
       log('Getting current version from: $xeniaPath');
-      
+
       // Get the directory containing the executable
       final execDir = path.dirname(xeniaPath);
       final logPath = path.join(execDir, 'xenia.log');
       log('Looking for log file at: $logPath');
 
       String? version;
-      
+
       // First try to read existing log file
       if (File(logPath).existsSync()) {
         log('Found existing log file, reading contents...');
@@ -73,24 +74,25 @@ class XeniaUpdateService {
     try {
       final logContent = await File(logPath).readAsString();
       final lines = logContent.split('\n');
-      
+
       // Get the first line
       if (lines.isNotEmpty) {
         final firstLine = lines.first;
         log('First line: $firstLine');
-        
+
         // Look for "i> " prefix and "Build:" in the line
         if (firstLine.contains('i>') && firstLine.contains('Build:')) {
           // Extract everything after "Build: "
           final buildIndex = firstLine.indexOf('Build:');
           if (buildIndex != -1) {
-            final versionInfo = firstLine.substring(buildIndex + 'Build: '.length).trim();
+            final versionInfo =
+                firstLine.substring(buildIndex + 'Build: '.length).trim();
             log('Extracted version info: $versionInfo');
             return versionInfo;
           }
         }
       }
-      
+
       log('Could not find version information in log file');
       return null;
     } catch (e) {
@@ -107,7 +109,7 @@ class XeniaUpdateService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final assets = data['assets'] as List;
-        
+
         // Find the Windows ZIP asset
         log('Looking for Windows ZIP asset...');
         final zipAsset = assets.firstWhere(
@@ -120,15 +122,15 @@ class XeniaUpdateService {
           log('Found download URL: $downloadUrl');
           log('Downloading ZIP file...');
           final downloadResponse = await http.get(Uri.parse(downloadUrl));
-          
+
           if (downloadResponse.statusCode == 200) {
             // Get the base folder path (parent directory of xeniaPath)
             final baseFolder = path.dirname(xeniaPath);
             final canaryFolder = path.join(baseFolder, 'canary');
-            
+
             log('Base folder: $baseFolder');
             log('Canary folder: $canaryFolder');
-            
+
             // Create canary folder if it doesn't exist
             final canaryDir = Directory(canaryFolder);
             if (!canaryDir.existsSync()) {
@@ -137,7 +139,8 @@ class XeniaUpdateService {
             }
 
             // Create backup of existing files
-            final backupFolder = path.join(baseFolder, 'backup_${DateTime.now().millisecondsSinceEpoch}');
+            final backupFolder = path.join(
+                baseFolder, 'backup_${DateTime.now().millisecondsSinceEpoch}');
             if (Directory(canaryFolder).existsSync()) {
               log('Creating backup at: $backupFolder');
               await Directory(canaryFolder).rename(backupFolder);
@@ -147,7 +150,7 @@ class XeniaUpdateService {
             log('Extracting ZIP contents...');
             final bytes = downloadResponse.bodyBytes;
             final archive = ZipDecoder().decodeBytes(bytes);
-            
+
             // Extract each file to the canary folder
             for (final file in archive) {
               final filename = file.name;
@@ -158,7 +161,7 @@ class XeniaUpdateService {
                 File(filePath)
                   ..createSync(recursive: true)
                   ..writeAsBytesSync(data);
-                
+
                 // Make executable files executable
                 if (filename.toLowerCase().endsWith('.exe')) {
                   log('Making executable: $filePath');

@@ -69,12 +69,13 @@ class XeniaConfigCard extends StatelessWidget {
   }
 
   Future<void> _selectBaseFolder(BuildContext context) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-    
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
+
     final result = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select Xenia Base Folder',
     );
-    
+
     if (result != null) {
       await settingsProvider.setBaseFolder(result);
       onBaseFolderSelected(result);
@@ -82,12 +83,13 @@ class XeniaConfigCard extends StatelessWidget {
   }
 
   Future<void> _selectWinePrefix(BuildContext context) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-    
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
+
     final result = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select Wine Prefix Folder',
     );
-    
+
     if (result != null) {
       await settingsProvider.setWinePrefix(result);
     }
@@ -95,11 +97,11 @@ class XeniaConfigCard extends StatelessWidget {
 
   Future<void> _selectIsoFolder(BuildContext context) async {
     final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
-    
+
     final result = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select Xbox 360 ISO Games Folder',
     );
-    
+
     if (result != null) {
       await isoProvider.setIsoFolder(result);
     }
@@ -107,11 +109,11 @@ class XeniaConfigCard extends StatelessWidget {
 
   Future<void> _selectLiveGamesFolder(BuildContext context) async {
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-    
+
     final result = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select Xbox Live Games Folder',
     );
-    
+
     if (result != null) {
       await liveProvider.setLiveGamesFolder(result);
     }

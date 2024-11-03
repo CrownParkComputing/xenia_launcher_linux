@@ -183,7 +183,8 @@ class _GameCardState extends State<GameCard> {
                                 if (widget.executableDisplayName != null)
                                   Text(
                                     widget.executableDisplayName!,
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -223,9 +224,10 @@ class _GameCardState extends State<GameCard> {
                                   child: Center(
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: widget.game.achievements.isNotEmpty
-                                            ? Colors.amber.withOpacity(0.8)
-                                            : Colors.black.withOpacity(0.5),
+                                        color:
+                                            widget.game.achievements.isNotEmpty
+                                                ? Colors.amber.withOpacity(0.8)
+                                                : Colors.black.withOpacity(0.5),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: InkWell(
@@ -242,9 +244,13 @@ class _GameCardState extends State<GameCard> {
                                               Icon(
                                                 Icons.emoji_events,
                                                 color: Colors.white,
-                                                size: widget.game.achievements.isNotEmpty ? 16 : 20,
+                                                size: widget.game.achievements
+                                                        .isNotEmpty
+                                                    ? 16
+                                                    : 20,
                                               ),
-                                              if (widget.game.achievements.isNotEmpty) ...[
+                                              if (widget.game.achievements
+                                                  .isNotEmpty) ...[
                                                 const SizedBox(width: 4),
                                                 Text(
                                                   '${widget.game.achievements.length}',
@@ -269,15 +275,18 @@ class _GameCardState extends State<GameCard> {
                                   child: dlcCount > 0
                                       ? InkWell(
                                           onTap: widget.onDLCTap,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.green.withOpacity(0.8),
-                                              borderRadius: BorderRadius.circular(12),
+                                              color:
+                                                  Colors.green.withOpacity(0.8),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -301,8 +310,10 @@ class _GameCardState extends State<GameCard> {
                                         )
                                       : Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withOpacity(0.5),
-                                            borderRadius: BorderRadius.circular(20),
+                                            color:
+                                                Colors.black.withOpacity(0.5),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
                                           ),
                                           child: IconButton(
                                             icon: const Icon(

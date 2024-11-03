@@ -13,8 +13,9 @@ class LiveGamesProvider extends BaseProvider {
   final AchievementService _achievementService = AchievementService();
   final SettingsProvider _settingsProvider;
   String _importStatus = '';
-  
-  LiveGamesProvider(SharedPreferences prefs, this._settingsProvider) : super(prefs);
+
+  LiveGamesProvider(SharedPreferences prefs, this._settingsProvider)
+      : super(prefs);
 
   List<Game> get liveGames => games.where((g) => g.isLiveGame).toList();
   String get importStatus => _importStatus;
@@ -39,14 +40,15 @@ class LiveGamesProvider extends BaseProvider {
     if (config.liveGamesFolder == null) return;
 
     try {
-      final newGames = await LiveGameService.scanLiveGamesDirectory(config.liveGamesFolder!);
-      
+      final newGames =
+          await LiveGameService.scanLiveGamesDirectory(config.liveGamesFolder!);
+
       // Remove games that no longer exist
       final existingPaths = newGames.map((g) => g.path).toSet();
-      final gamesToRemove = games.where(
-        (g) => g.isLiveGame && !existingPaths.contains(g.path)
-      ).toList();
-      
+      final gamesToRemove = games
+          .where((g) => g.isLiveGame && !existingPaths.contains(g.path))
+          .toList();
+
       for (final game in gamesToRemove) {
         await removeGame(game);
       }
@@ -56,26 +58,21 @@ class LiveGamesProvider extends BaseProvider {
         if (!games.any((g) => g.path == game.path)) {
           // Scan for existing DLC
           final dlcs = await DLCService.scanForDLC(game);
-          
+
           // Extract achievements if Xenia is configured
           List<Achievement> achievements = [];
           if (config.baseFolder != null && config.winePrefix != null) {
             print('Extracting achievements for ${game.title}...');
-            achievements = await _achievementService.extractAchievements(
-              game,
-              config.baseFolder!,
-              config.winePrefix!,
-              _settingsProvider
-            );
+            achievements = await _achievementService.extractAchievements(game,
+                config.baseFolder!, config.winePrefix!, _settingsProvider);
             if (achievements.isNotEmpty) {
-              print('Found ${achievements.length} achievements for ${game.title}');
+              print(
+                  'Found ${achievements.length} achievements for ${game.title}');
             }
           }
-          
-          final gameWithExtras = game.copyWith(
-            dlc: dlcs,
-            achievements: achievements
-          );
+
+          final gameWithExtras =
+              game.copyWith(dlc: dlcs, achievements: achievements);
           await addGame(gameWithExtras);
         }
       }
@@ -99,28 +96,23 @@ class LiveGamesProvider extends BaseProvider {
         // Scan for existing DLC
         _updateStatus('Scanning for DLC...');
         final dlcs = await DLCService.scanForDLC(game);
-        
+
         // Extract achievements if Xenia is configured
         List<Achievement> achievements = [];
         if (config.baseFolder != null && config.winePrefix != null) {
           _updateStatus('Extracting achievements...');
           print('Extracting achievements for ${game.title}...');
           achievements = await _achievementService.extractAchievements(
-            game,
-            config.baseFolder!,
-            config.winePrefix!,
-            _settingsProvider
-          );
+              game, config.baseFolder!, config.winePrefix!, _settingsProvider);
           if (achievements.isNotEmpty) {
-            print('Found ${achievements.length} achievements for ${game.title}');
+            print(
+                'Found ${achievements.length} achievements for ${game.title}');
           }
         }
-        
+
         _updateStatus('Finalizing import...');
-        final gameWithExtras = game.copyWith(
-          dlc: dlcs,
-          achievements: achievements
-        );
+        final gameWithExtras =
+            game.copyWith(dlc: dlcs, achievements: achievements);
         await addGame(gameWithExtras);
         _clearStatus();
         return gameWithExtras;
@@ -169,7 +161,8 @@ class LiveGamesProvider extends BaseProvider {
     }
   }
 
-  Future<void> updateGameLastUsedExecutable(Game game, String executable) async {
+  Future<void> updateGameLastUsedExecutable(
+      Game game, String executable) async {
     if (!game.isLiveGame) return;
     final updatedGame = game.copyWith(lastUsedExecutable: executable);
     await updateGame(updatedGame);
@@ -199,12 +192,8 @@ class LiveGamesProvider extends BaseProvider {
     try {
       print('Rescanning achievements for ${game.title}...');
       final achievements = await _achievementService.extractAchievements(
-        game,
-        config.baseFolder!,
-        config.winePrefix!,
-        _settingsProvider
-      );
-      
+          game, config.baseFolder!, config.winePrefix!, _settingsProvider);
+
       if (achievements.isNotEmpty) {
         print('Found ${achievements.length} achievements for ${game.title}');
         final updatedGame = game.copyWith(achievements: achievements);

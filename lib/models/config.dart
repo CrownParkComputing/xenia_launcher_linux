@@ -24,25 +24,27 @@ class Config {
   });
 
   Map<String, dynamic> toJson() => {
-    'baseFolder': baseFolder,
-    'winePrefix': winePrefix,
-    'isoFolder': isoFolder,
-    'liveGamesFolder': liveGamesFolder,
-    'xeniaExecutables': xeniaExecutables,
-    'xeniaVersions': xeniaVersions,
-    'cardSize': cardSize.index,
-  };
+        'baseFolder': baseFolder,
+        'winePrefix': winePrefix,
+        'isoFolder': isoFolder,
+        'liveGamesFolder': liveGamesFolder,
+        'xeniaExecutables': xeniaExecutables,
+        'xeniaVersions': xeniaVersions,
+        'cardSize': cardSize.index,
+      };
 
   factory Config.fromJson(Map<String, dynamic> json) => Config(
-    baseFolder: json['baseFolder'] as String?,
-    winePrefix: json['winePrefix'] as String?,
-    isoFolder: json['isoFolder'] as String?,
-    liveGamesFolder: json['liveGamesFolder'] as String?,
-    xeniaExecutables: (json['xeniaExecutables'] as List<dynamic>?)
-        ?.map((e) => e as String)
-        .toList() ?? [],
-    xeniaVersions: (json['xeniaVersions'] as Map<String, dynamic>?)
-        ?.map((k, v) => MapEntry(k, v as String)) ?? {},
-    cardSize: GameCardSize.values[json['cardSize'] as int? ?? 1],
-  );
+        baseFolder: json['baseFolder'] as String?,
+        winePrefix: json['winePrefix'] as String?,
+        isoFolder: json['isoFolder'] as String?,
+        liveGamesFolder: json['liveGamesFolder'] as String?,
+        xeniaExecutables: (json['xeniaExecutables'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            [],
+        xeniaVersions: (json['xeniaVersions'] as Map<String, dynamic>?)
+                ?.map((k, v) => MapEntry(k, v as String)) ??
+            {},
+        cardSize: GameCardSize.values[json['cardSize'] as int? ?? 1],
+      );
 }

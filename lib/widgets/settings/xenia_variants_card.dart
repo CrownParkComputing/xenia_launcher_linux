@@ -15,7 +15,8 @@ class XeniaVariant {
 class XeniaVariantsCard extends StatelessWidget {
   static final List<XeniaVariant> xeniaVariants = [
     XeniaVariant(name: 'Xenia Canary', executableName: 'xenia_canary.exe'),
-    XeniaVariant(name: 'Xenia Netplay', executableName: 'xenia_canary_netplay.exe'),
+    XeniaVariant(
+        name: 'Xenia Netplay', executableName: 'xenia_canary_netplay.exe'),
     XeniaVariant(name: 'Xenia Stable', executableName: 'xenia.exe'),
   ];
 
@@ -41,16 +42,18 @@ class XeniaVariantsCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ...xeniaVariants.map((variant) {
-              final execPath = settingsProvider.config.xeniaExecutables
-                  .firstWhere(
-                    (exe) => exe.toLowerCase().endsWith(variant.executableName.toLowerCase()),
-                    orElse: () => '',
-                  );
-              
-              final version = execPath.isNotEmpty 
+              final execPath =
+                  settingsProvider.config.xeniaExecutables.firstWhere(
+                (exe) => exe
+                    .toLowerCase()
+                    .endsWith(variant.executableName.toLowerCase()),
+                orElse: () => '',
+              );
+
+              final version = execPath.isNotEmpty
                   ? settingsProvider.config.xeniaVersions[execPath] ?? 'Unknown'
                   : '';
-              
+
               return ListTile(
                 leading: Icon(
                   execPath.isNotEmpty ? Icons.check_circle : Icons.error,
@@ -60,27 +63,29 @@ class XeniaVariantsCard extends StatelessWidget {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(execPath.isNotEmpty 
-                      ? execPath.split('/').last
-                      : 'Not found'),
+                    Text(execPath.isNotEmpty
+                        ? execPath.split('/').last
+                        : 'Not found'),
                     if (version.isNotEmpty && version != 'Unknown')
                       Text(
                         version,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
                       ),
                   ],
                 ),
-                trailing: execPath.isNotEmpty ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => _testExecutable(context, execPath),
-                      child: const Text('Test'),
-                    ),
-                  ],
-                ) : null,
+                trailing: execPath.isNotEmpty
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => _testExecutable(context, execPath),
+                            child: const Text('Test'),
+                          ),
+                        ],
+                      )
+                    : null,
                 isThreeLine: version.isNotEmpty && version != 'Unknown',
               );
             }).toList(),
@@ -91,7 +96,8 @@ class XeniaVariantsCard extends StatelessWidget {
   }
 
   Future<void> _testExecutable(BuildContext context, String executable) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
     final winePrefix = settingsProvider.config.winePrefix;
 
     if (winePrefix == null) {
@@ -101,13 +107,16 @@ class XeniaVariantsCard extends StatelessWidget {
       return;
     }
 
-    final success = await settingsProvider.testExecutable(executable, winePrefix);
+    final success =
+        await settingsProvider.testExecutable(executable, winePrefix);
 
     if (context.mounted) {
       if (success) {
         final version = settingsProvider.config.xeniaVersions[executable];
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully tested ${executable.split('/').last}${version != null ? '\n$version' : ''}')),
+          SnackBar(
+              content: Text(
+                  'Successfully tested ${executable.split('/').last}${version != null ? '\n$version' : ''}')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

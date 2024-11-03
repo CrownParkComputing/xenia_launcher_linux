@@ -71,7 +71,8 @@ class LiveGamesScreen extends StatelessWidget {
           Expanded(
             child: GameGrid(
               games: liveProvider.liveGames,
-              getExecutableDisplayName: settingsProvider.getExecutableDisplayName,
+              getExecutableDisplayName:
+                  settingsProvider.getExecutableDisplayName,
               onGameTap: (game) => _launchGame(context, game),
               onGameMoreTap: (game) => _showDLCDialog(context, game),
               onGameDelete: (game) => _removeGame(context, game),
@@ -85,10 +86,11 @@ class LiveGamesScreen extends StatelessWidget {
 
   Future<void> _importGame(BuildContext context) async {
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-    
+
     if (liveProvider.config.liveGamesFolder == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please configure Xbox Live Games folder first')),
+        const SnackBar(
+            content: Text('Please configure Xbox Live Games folder first')),
       );
       return;
     }
@@ -116,9 +118,9 @@ class LiveGamesScreen extends StatelessWidget {
                       const CircularProgressIndicator(),
                       const SizedBox(height: 24),
                       Text(
-                        provider.importStatus.isNotEmpty 
-                          ? provider.importStatus 
-                          : 'Importing game...',
+                        provider.importStatus.isNotEmpty
+                            ? provider.importStatus
+                            : 'Importing game...',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ],
@@ -134,7 +136,7 @@ class LiveGamesScreen extends StatelessWidget {
 
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
-        
+
         if (game != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Successfully imported ${game.title}')),
@@ -150,7 +152,7 @@ class LiveGamesScreen extends StatelessWidget {
 
   Future<void> _rescanGames(BuildContext context) async {
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -162,7 +164,9 @@ class LiveGamesScreen extends StatelessWidget {
     if (context.mounted) {
       Navigator.pop(context); // Close loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Found ${liveProvider.liveGames.length} Xbox Live games')),
+        SnackBar(
+            content:
+                Text('Found ${liveProvider.liveGames.length} Xbox Live games')),
       );
     }
   }
@@ -177,7 +181,7 @@ class LiveGamesScreen extends StatelessWidget {
   Future<void> _removeGame(BuildContext context, Game game) async {
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
     await liveProvider.removeGame(game);
-    
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Game removed from library')),
@@ -186,9 +190,10 @@ class LiveGamesScreen extends StatelessWidget {
   }
 
   Future<void> _launchGame(BuildContext context, Game game) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-    
+
     if (settingsProvider.config.xeniaExecutables.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No Xenia executables found')),
@@ -197,14 +202,18 @@ class LiveGamesScreen extends StatelessWidget {
     }
 
     // If there's a last used executable, use it directly
-    final executable = game.lastUsedExecutable ?? settingsProvider.config.xeniaExecutables.first;
+    final executable = game.lastUsedExecutable ??
+        settingsProvider.config.xeniaExecutables.first;
     await _runGame(context, game, executable);
   }
 
-  Future<void> _runGame(BuildContext context, Game game, String executable) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+  Future<void> _runGame(
+      BuildContext context, Game game, String executable) async {
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-    final statsProvider = Provider.of<GameStatsProvider>(context, listen: false);
+    final statsProvider =
+        Provider.of<GameStatsProvider>(context, listen: false);
     final winePrefix = settingsProvider.config.winePrefix;
 
     if (winePrefix == null) {

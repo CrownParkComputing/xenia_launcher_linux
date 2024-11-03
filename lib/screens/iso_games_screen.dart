@@ -55,7 +55,8 @@ class IsoGamesScreen extends StatelessWidget {
           Expanded(
             child: GameGrid(
               games: isoProvider.isoGames,
-              getExecutableDisplayName: settingsProvider.getExecutableDisplayName,
+              getExecutableDisplayName:
+                  settingsProvider.getExecutableDisplayName,
               onGameTap: (game) => _launchGame(context, game),
               onGameMoreTap: (game) => _showDLCDialog(context, game),
               onGameDelete: (game) => _removeGame(context, game),
@@ -69,10 +70,11 @@ class IsoGamesScreen extends StatelessWidget {
 
   Future<void> _importGame(BuildContext context) async {
     final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
-    
+
     if (isoProvider.config.isoFolder == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please configure ISO Games folder first')),
+        const SnackBar(
+            content: Text('Please configure ISO Games folder first')),
       );
       return;
     }
@@ -103,7 +105,7 @@ class IsoGamesScreen extends StatelessWidget {
   Future<void> _removeGame(BuildContext context, Game game) async {
     final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
     await isoProvider.removeGame(game);
-    
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Game removed from library')),
@@ -112,9 +114,10 @@ class IsoGamesScreen extends StatelessWidget {
   }
 
   Future<void> _launchGame(BuildContext context, Game game) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
     final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
-    
+
     if (settingsProvider.config.xeniaExecutables.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No Xenia executables found')),
@@ -123,14 +126,18 @@ class IsoGamesScreen extends StatelessWidget {
     }
 
     // If there's a last used executable, use it directly
-    final executable = game.lastUsedExecutable ?? settingsProvider.config.xeniaExecutables.first;
+    final executable = game.lastUsedExecutable ??
+        settingsProvider.config.xeniaExecutables.first;
     await _runGame(context, game, executable);
   }
 
-  Future<void> _runGame(BuildContext context, Game game, String executable) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+  Future<void> _runGame(
+      BuildContext context, Game game, String executable) async {
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
     final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
-    final statsProvider = Provider.of<GameStatsProvider>(context, listen: false);
+    final statsProvider =
+        Provider.of<GameStatsProvider>(context, listen: false);
     final winePrefix = settingsProvider.config.winePrefix;
 
     if (winePrefix == null) {

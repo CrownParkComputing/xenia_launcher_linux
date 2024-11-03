@@ -51,7 +51,7 @@ class BaseProvider with ChangeNotifier {
         added = true;
       }
     }
-    
+
     if (added) {
       _games.sort((a, b) => a.title.compareTo(b.title));
       await _saveGames();
@@ -79,7 +79,8 @@ class BaseProvider with ChangeNotifier {
   }
 
   Future<void> _saveGames() async {
-    await _prefs.setString('games', jsonEncode(_games.map((g) => g.toJson()).toList()));
+    await _prefs.setString(
+        'games', jsonEncode(_games.map((g) => g.toJson()).toList()));
     notifyListeners();
   }
 

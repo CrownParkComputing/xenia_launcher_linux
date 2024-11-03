@@ -50,13 +50,14 @@ class IGDBService {
 
       log('Token response status: ${response.statusCode}');
       log('Token response body: ${response.body}');
-      
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         _accessToken = data['access_token'];
         return _accessToken!;
       } else {
-        throw Exception('Failed to get access token: HTTP ${response.statusCode}');
+        throw Exception(
+            'Failed to get access token: HTTP ${response.statusCode}');
       }
     } catch (e) {
       log('Error getting access token: $e');
@@ -73,33 +74,36 @@ class IGDBService {
       }
 
       log('Starting game details fetch for: $gameName');
-      
+
       // Clean the game name to improve search results
       final cleanedName = _cleanGameName(gameName);
       log('Original name: $gameName');
       log('Cleaned name: $cleanedName');
 
       final token = await _getAccessToken();
-      
+
       // Try different search strategies
       IGDBGame? game;
-      
+
       // 1. Try exact match with cleaned name
       log('Attempting exact match search with cleaned name...');
-      game = await _searchGame(token, cleanedName, searchType: SearchType.exact);
-      
+      game =
+          await _searchGame(token, cleanedName, searchType: SearchType.exact);
+
       // 2. Try partial match if no exact match found
       if (game == null) {
         log('No exact match found, trying partial match...');
-        game = await _searchGame(token, cleanedName, searchType: SearchType.partial);
+        game = await _searchGame(token, cleanedName,
+            searchType: SearchType.partial);
       }
-      
+
       // 3. Try alternative names if still no match
       if (game == null) {
         final alternativeNames = _generateAlternativeNames(cleanedName);
         for (final altName in alternativeNames) {
           log('Trying alternative name: $altName');
-          game = await _searchGame(token, altName, searchType: SearchType.partial);
+          game =
+              await _searchGame(token, altName, searchType: SearchType.partial);
           if (game != null) break;
         }
       }
@@ -118,7 +122,8 @@ class IGDBService {
     }
   }
 
-  Future<IGDBGame?> _searchGame(String token, String gameName, {required SearchType searchType}) async {
+  Future<IGDBGame?> _searchGame(String token, String gameName,
+      {required SearchType searchType}) async {
     final searchQuery = searchType == SearchType.exact
         ? '''
         fields name,summary,screenshots.*,genres.*,game_modes.*,cover.*,rating,release_dates.*;
@@ -134,7 +139,8 @@ class IGDBService {
 
     log('IGDB Query (${searchType.name}):\n$searchQuery');
 
-    final response = await http.post(
+    final response = await http
+        .post(
       Uri.parse('$_baseUrl/games'),
       headers: {
         'Client-ID': _clientId,
@@ -142,7 +148,8 @@ class IGDBService {
         'Accept': 'application/json',
       },
       body: searchQuery,
-    ).timeout(
+    )
+        .timeout(
       const Duration(seconds: 10),
       onTimeout: () {
         throw Exception('Connection timeout while fetching game details');
@@ -151,10 +158,10 @@ class IGDBService {
 
     log('IGDB response status: ${response.statusCode}');
     log('IGDB response body: ${response.body}');
-    
+
     if (response.statusCode == 200) {
       final List<dynamic> games = json.decode(response.body);
-      
+
       if (games.isNotEmpty) {
         log('Found game details for: $gameName');
         return IGDBGame.fromJson(games.first);
@@ -162,58 +169,59 @@ class IGDBService {
       log('No games found for query: $gameName');
       return null;
     } else {
-      throw Exception('Failed to fetch game details: HTTP ${response.statusCode}');
+      throw Exception(
+          'Failed to fetch game details: HTTP ${response.statusCode}');
     }
   }
 
   List<String> _generateAlternativeNames(String name) {
     final alternatives = <String>[];
-    
+
     // Split into words
     final words = name.split(' ');
-    
+
     // Try first two words
     if (words.length > 1) {
       alternatives.add('${words[0]} ${words[1]}');
     }
-    
+
     // Try without common prefixes
     if (name.startsWith('the ')) {
       alternatives.add(name.substring(4));
     }
-    
+
     // Try removing numbers at the end
     if (RegExp(r'\s+\d+$').hasMatch(name)) {
       alternatives.add(name.replaceAll(RegExp(r'\s+\d+$'), ''));
     }
-    
+
     log('Generated alternative names:');
     for (final alt in alternatives) {
       log('  - $alt');
     }
-    
+
     return alternatives;
   }
 
   String _cleanGameName(String name) {
     var cleaned = name.toLowerCase();
-    
+
     // Log each cleaning step
     log('Cleaning game name:');
     log('  Original: $cleaned');
-    
+
     // Remove file extensions
     cleaned = cleaned.replaceAll(RegExp(r'\.(iso|xex|zip|gzip|rar)$'), '');
     log('  After extension removal: $cleaned');
-    
+
     // Remove anything in brackets or parentheses and their contents
     cleaned = cleaned.replaceAll(RegExp(r'\[.*?\]|\(.*?\)|\{.*?\}'), '');
     log('  After brackets/parentheses removal: $cleaned');
-    
+
     // Remove version numbers
     cleaned = cleaned.replaceAll(RegExp(r'v\d+(\.\d+)*'), '');
     log('  After version numbers removal: $cleaned');
-    
+
     // Remove release group names
     cleaned = cleaned.replaceAll(RegExp(r'-[a-zA-Z0-9]+$'), '');
     log('  After release group removal: $cleaned');
@@ -223,15 +231,15 @@ class IGDBService {
       cleaned = cleaned.replaceAll(pattern, '');
     }
     log('  After variant removal: $cleaned');
-    
+
     // Remove all special characters except alphanumeric and spaces
     cleaned = cleaned.replaceAll(RegExp(r'[^\w\s]'), ' ');
     log('  After special characters removal: $cleaned');
-    
+
     // Remove multiple spaces and trim
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
     log('  Final cleaned name: $cleaned');
-    
+
     return cleaned;
   }
 }

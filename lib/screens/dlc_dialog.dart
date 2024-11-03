@@ -129,7 +129,7 @@ class _DLCDialogState extends State<DLCDialog> {
 
   Future<void> _importDLC(BuildContext context) async {
     final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-    
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['zip'],
@@ -180,7 +180,7 @@ class _DLCDialogState extends State<DLCDialog> {
 
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
-        
+
         // Show result message
         String message = '';
         if (successCount > 0) {
@@ -190,7 +190,7 @@ class _DLCDialogState extends State<DLCDialog> {
           if (message.isNotEmpty) message += '\n\n';
           message += 'Failed to install $failCount DLC';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
@@ -209,7 +209,8 @@ class _DLCDialogState extends State<DLCDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove DLC'),
-        content: Text('Are you sure you want to remove "${dlc.name}"?\n\nThis will delete the DLC files.'),
+        content: Text(
+            'Are you sure you want to remove "${dlc.name}"?\n\nThis will delete the DLC files.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -228,8 +229,9 @@ class _DLCDialogState extends State<DLCDialog> {
     );
 
     if (confirmed == true && context.mounted) {
-      final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-      
+      final liveProvider =
+          Provider.of<LiveGamesProvider>(context, listen: false);
+
       try {
         await liveProvider.removeDLC(_currentGame, dlc);
         if (context.mounted) {

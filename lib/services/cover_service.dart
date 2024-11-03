@@ -12,14 +12,15 @@ class CoverService {
   Future<String> getLocalCoverPath(Game game) async {
     final appDir = await getApplicationDocumentsDirectory();
     final coversDir = Directory(path.join(appDir.path, 'covers'));
-    
+
     // Ensure covers directory exists
     if (!await coversDir.exists()) {
       await coversDir.create(recursive: true);
     }
 
     // Create a unique filename based on game title
-    final filename = '${game.title.replaceAll(RegExp(r'[^\w\s-]'), '')}_${game.id ?? ''}.jpg';
+    final filename =
+        '${game.title.replaceAll(RegExp(r'[^\w\s-]'), '')}_${game.id ?? ''}.jpg';
     return path.join(coversDir.path, filename);
   }
 

@@ -9,7 +9,35 @@ on:
     branches: [ main, master ]
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Format code
+        run: dart format .
+        
+      - name: Commit formatting changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git diff --quiet && git diff --staged --quiet || git commit -m "Apply automatic formatting"
+          git push origin HEAD:${{ github.ref }} || true
+
   analyze:
+    needs: format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -22,9 +50,6 @@ jobs:
           
       - name: Install dependencies
         run: flutter pub get
-        
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed .
         
       - name: Analyze project source
         run: flutter analyze

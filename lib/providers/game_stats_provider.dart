@@ -18,7 +18,8 @@ class GameStatsProvider extends BaseProvider {
 
   Game? getGame(String path) => _gamesMap[path];
 
-  Future<void> startTracking(Game game, String xeniaPath, Process process) async {
+  Future<void> startTracking(
+      Game game, String xeniaPath, Process process) async {
     await _trackingService.startTracking(game, xeniaPath, process);
     _gamesMap[game.path] = game;
     notifyListeners();

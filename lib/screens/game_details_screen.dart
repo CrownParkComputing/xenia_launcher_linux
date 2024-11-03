@@ -34,7 +34,7 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
       developer.log('Fetching details for game: ${widget.game.title}');
       final details = await _igdbService.getGameDetails(widget.game.title);
       developer.log('Received game details: $details');
-      
+
       if (mounted) {
         setState(() {
           _gameDetails = details;
@@ -59,8 +59,10 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
   }
 
   Widget _buildGameStats() {
-    final stats = context.watch<GameStatsProvider>().getGame(widget.game.path) ?? widget.game;
-    
+    final stats =
+        context.watch<GameStatsProvider>().getGame(widget.game.path) ??
+            widget.game;
+
     return Card(
       margin: const EdgeInsets.all(16.0),
       child: Padding(
@@ -164,7 +166,8 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
           children: [
             const Text('No details found for this game'),
             const SizedBox(height: 16),
-            Text('Game title: ${widget.game.title}', style: const TextStyle(color: Colors.grey)),
+            Text('Game title: ${widget.game.title}',
+                style: const TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -181,7 +184,8 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                 height: 300,
                 fit: BoxFit.cover,
                 errorWidget: (context, url, error) => const Icon(Icons.error),
-                placeholder: (context, url) => const CircularProgressIndicator(),
+                placeholder: (context, url) =>
+                    const CircularProgressIndicator(),
               ),
             ),
           _buildGameStats(),
@@ -199,7 +203,8 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                   Row(
                     children: [
                       const Icon(Icons.star, color: Colors.amber),
-                      Text(' ${(_gameDetails!.rating! / 10).toStringAsFixed(1)}/10'),
+                      Text(
+                          ' ${(_gameDetails!.rating! / 10).toStringAsFixed(1)}/10'),
                     ],
                   ),
                 ],
@@ -246,8 +251,10 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                           child: CachedNetworkImage(
                             imageUrl: _gameDetails!.screenshots[index],
                             fit: BoxFit.cover,
-                            errorWidget: (context, url, error) => const Icon(Icons.error),
-                            placeholder: (context, url) => const CircularProgressIndicator(),
+                            errorWidget: (context, url, error) =>
+                                const Icon(Icons.error),
+                            placeholder: (context, url) =>
+                                const CircularProgressIndicator(),
                           ),
                         );
                       },

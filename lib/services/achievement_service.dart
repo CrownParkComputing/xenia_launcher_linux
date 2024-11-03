@@ -10,15 +10,11 @@ class AchievementService {
   AchievementService._internal();
 
   /// Extracts achievements from a game by launching it briefly and reading the log
-  Future<List<Achievement>> extractAchievements(
-    Game game,
-    String xeniaPath,
-    String winePrefix,
-    SettingsProvider settingsProvider
-  ) async {
+  Future<List<Achievement>> extractAchievements(Game game, String xeniaPath,
+      String winePrefix, SettingsProvider settingsProvider) async {
     print('Extracting achievements for ${game.title}...');
     print('Game path: ${game.path}');
-    
+
     // Get the executable from settings
     if (settingsProvider.config.xeniaExecutables.isEmpty) {
       print('No Xenia executables configured');
@@ -28,10 +24,10 @@ class AchievementService {
     final executable = settingsProvider.config.xeniaExecutables.first;
     final xeniaDir = path.dirname(executable);
     final logPath = path.join(xeniaDir, 'xenia.log');
-    
+
     print('Looking for log at: $logPath');
     print('Using Xenia at: $executable');
-    
+
     // Clear existing log
     final logFile = File(logPath);
     if (await logFile.exists()) {
@@ -72,7 +68,7 @@ class AchievementService {
       List<Achievement> achievements = [];
       int attempts = 0;
       const maxAttempts = 30; // 30 seconds max wait time
-      
+
       while (attempts < maxAttempts) {
         await Future.delayed(const Duration(seconds: 1));
         if (await logFile.exists()) {
@@ -90,10 +86,10 @@ class AchievementService {
       if (xeniaProcess != null) {
         print('Gracefully terminating Xenia...');
         xeniaProcess.kill(ProcessSignal.sigterm);
-        
+
         // Wait for process to exit
         await Future.delayed(const Duration(seconds: 2));
-        
+
         // Only force kill if still running
         try {
           final running = xeniaProcess.kill(ProcessSignal.sigterm);
@@ -117,10 +113,10 @@ class AchievementService {
         try {
           // Try graceful termination first
           xeniaProcess.kill(ProcessSignal.sigterm);
-          
+
           // Wait briefly for process to exit
           await Future.delayed(const Duration(seconds: 2));
-          
+
           // Force kill if still running
           try {
             final running = xeniaProcess.kill(ProcessSignal.sigterm);
@@ -142,10 +138,10 @@ class AchievementService {
     final lines = logContent.split('\n');
     bool inAchievementSection = false;
     bool headerPassed = false;
-    
+
     for (final line in lines) {
       final trimmedLine = line.trim();
-      
+
       // Stop parsing if we hit the PROPERTIES section
       if (trimmedLine.contains('PROPERTIES')) {
         break;
@@ -169,11 +165,15 @@ class AchievementService {
       }
 
       // Only process achievement lines after header and if they match our format
-      if (inAchievementSection && headerPassed && trimmedLine.startsWith('| ') && trimmedLine.endsWith(' |')) {
-        final parts = trimmedLine.split('|')
-          .map((part) => part.trim())
-          .where((part) => part.isNotEmpty)
-          .toList();
+      if (inAchievementSection &&
+          headerPassed &&
+          trimmedLine.startsWith('| ') &&
+          trimmedLine.endsWith(' |')) {
+        final parts = trimmedLine
+            .split('|')
+            .map((part) => part.trim())
+            .where((part) => part.isNotEmpty)
+            .toList();
 
         if (parts.length >= 4) {
           final id = parts[0];
@@ -182,12 +182,8 @@ class AchievementService {
           final gamerscore = parts[3].replaceAll(RegExp(r'[^\d]'), '');
 
           try {
-            final achievement = Achievement.fromLogLine(
-              id,
-              title,
-              description,
-              gamerscore
-            );
+            final achievement =
+                Achievement.fromLogLine(id, title, description, gamerscore);
             achievements.add(achievement);
             print('Added achievement: $title');
           } catch (e) {
