@@ -16,7 +16,7 @@ jobs:
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ninja-build libgtk-3-dev rpm clang cmake pkg-config
+        sudo apt-get install -y ninja-build libgtk-3-dev rpm clang cmake pkg-config fuse dpkg-dev debhelper
 
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
@@ -30,6 +30,7 @@ jobs:
     - name: Build Linux Release
       run: flutter build linux --release
 
+    # RPM Package Building
     - name: Create RPM structure
       run: |
         mkdir -p rpm_build/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
@@ -90,22 +91,101 @@ jobs:
         - Initial RPM release
         EOF
 
-    - name: Mock RPM build environment
-      run: |
-        sudo ln -s /usr/include/gtk-3.0 /usr/include/gtk3
-        sudo ln -s /usr/lib/x86_64-linux-gnu/gtk-3.0 /usr/lib/gtk3
-
     - name: Build RPM package
-      run: rpmbuild --define "_topdir $(pwd)/rpm_build" --nodeps -bb rpm_build/SPECS/xenia-launcher.spec
+      id: rpm_build
+      run: |
+        rpmbuild --define "_topdir $(pwd)/rpm_build" --nodeps -bb rpm_build/SPECS/xenia-launcher.spec
+        echo "::set-output name=rpm_path::$(find rpm_build/RPMS -name '*.rpm' -type f)"
 
-    - name: Upload RPM artifact
+    # DEB Package Building
+    - name: Create DEB structure
+      run: |
+        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/DEBIAN
+        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/usr/lib/xenia-launcher
+        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/usr/bin
+        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/usr/share/applications
+
+    - name: Prepare DEB files
+      run: |
+        # Copy application files
+        cp -r build/linux/x64/release/bundle/* deb_build/xenia-launcher_1.0.0-1_amd64/usr/lib/xenia-launcher/
+        
+        # Create launcher script
+        cat > deb_build/xenia-launcher_1.0.0-1_amd64/usr/bin/xenia-launcher << EOF
+        #!/bin/bash
+        exec /usr/lib/xenia-launcher/xenia_launcher "\$@"
+        EOF
+        chmod +x deb_build/xenia-launcher_1.0.0-1_amd64/usr/bin/xenia-launcher
+        
+        # Create desktop entry
+        cp AppDir/xenia-launcher.desktop deb_build/xenia-launcher_1.0.0-1_amd64/usr/share/applications/
+        
+        # Create control file
+        cat > deb_build/xenia-launcher_1.0.0-1_amd64/DEBIAN/control << EOF
+        Package: xenia-launcher
+        Version: 1.0.0-1
+        Section: games
+        Priority: optional
+        Architecture: amd64
+        Depends: libgtk-3-0
+        Maintainer: Xenia Team
+        Description: Xenia Game Launcher
+         A game launcher for the Xenia Xbox 360 emulator
+        EOF
+
+    - name: Build DEB package
+      id: deb_build
+      run: |
+        dpkg-deb --build deb_build/xenia-launcher_1.0.0-1_amd64
+        echo "::set-output name=deb_path::$(pwd)/deb_build/xenia-launcher_1.0.0-1_amd64.deb"
+
+    # AppImage Building
+    - name: Prepare AppDir
+      run: |
+        chmod +x appimagetool
+        cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+        chmod +x AppDir/AppRun
+
+    - name: Build AppImage
+      id: appimage_build
+      run: |
+        ARCH=x86_64 ./appimagetool AppDir/
+        mv Xenia_Launcher-x86_64.AppImage xenia-launcher-1.0.0-x86_64.AppImage
+        echo "::set-output name=appimage_path::$(pwd)/xenia-launcher-1.0.0-x86_64.AppImage"
+
+    # Upload artifacts
+    - name: Upload RPM package
       uses: actions/upload-artifact@v3
+      if: success() && steps.rpm_build.outputs.rpm_path != ''
       with:
         name: xenia-launcher-rpm
-        path: rpm_build/RPMS/x86_64/xenia-launcher-*.rpm
+        path: ${{ steps.rpm_build.outputs.rpm_path }}
+        if-no-files-found: error
 
-    - name: Upload Linux bundle artifact
+    - name: Upload DEB package
       uses: actions/upload-artifact@v3
+      if: success() && steps.deb_build.outputs.deb_path != ''
       with:
-        name: xenia-launcher-linux
-        path: build/linux/x64/release/bundle
+        name: xenia-launcher-deb
+        path: ${{ steps.deb_build.outputs.deb_path }}
+        if-no-files-found: error
+
+    - name: Upload AppImage
+      uses: actions/upload-artifact@v3
+      if: success() && steps.appimage_build.outputs.appimage_path != ''
+      with:
+        name: xenia-launcher-appimage
+        path: ${{ steps.appimage_build.outputs.appimage_path }}
+        if-no-files-found: error
+
+    # Create Release (only on tags)
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ steps.rpm_build.outputs.rpm_path }}
+          ${{ steps.deb_build.outputs.deb_path }}
+          ${{ steps.appimage_build.outputs.appimage_path }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
