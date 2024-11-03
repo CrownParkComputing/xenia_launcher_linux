@@ -13,6 +13,23 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Get version from pubspec
+      id: version
+      run: |
+        VERSION=$(grep 'version:' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version found: $VERSION"
+
+    - name: Create Tag
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a v${{ steps.version.outputs.version }} -m "Release version ${{ steps.version.outputs.version }}"
+        git push origin v${{ steps.version.outputs.version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
@@ -41,7 +58,7 @@ jobs:
         CHANGELOG_DATE=$(date '+%a %b %d %Y')
         cat > rpm_build/SPECS/xenia-launcher.spec << EOF
         Name:           xenia-launcher
-        Version:        1.0.0
+        Version:        ${{ steps.version.outputs.version }}
         Release:        1%{?dist}
         Summary:        Xenia Game Launcher
         
@@ -87,43 +104,43 @@ jobs:
         /usr/share/applications/xenia-launcher.desktop
         
         %changelog
-        * ${CHANGELOG_DATE} GitHub Action <action@github.com> - 1.0.0-1
-        - Initial RPM release
+        * ${CHANGELOG_DATE} GitHub Action <action@github.com> - ${{ steps.version.outputs.version }}-1
+        - Release version ${{ steps.version.outputs.version }}
         EOF
 
     - name: Build RPM package
       id: rpm_build
       run: |
         rpmbuild --define "_topdir $(pwd)/rpm_build" --nodeps -bb rpm_build/SPECS/xenia-launcher.spec
-        echo "::set-output name=rpm_path::$(find rpm_build/RPMS -name '*.rpm' -type f)"
+        echo "rpm_path=$(find rpm_build/RPMS -name '*.rpm' -type f)" >> $GITHUB_OUTPUT
 
     # DEB Package Building
     - name: Create DEB structure
       run: |
-        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/DEBIAN
-        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/usr/lib/xenia-launcher
-        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/usr/bin
-        mkdir -p deb_build/xenia-launcher_1.0.0-1_amd64/usr/share/applications
+        mkdir -p deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/DEBIAN
+        mkdir -p deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/usr/lib/xenia-launcher
+        mkdir -p deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/usr/bin
+        mkdir -p deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/usr/share/applications
 
     - name: Prepare DEB files
       run: |
         # Copy application files
-        cp -r build/linux/x64/release/bundle/* deb_build/xenia-launcher_1.0.0-1_amd64/usr/lib/xenia-launcher/
+        cp -r build/linux/x64/release/bundle/* deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/usr/lib/xenia-launcher/
         
         # Create launcher script
-        cat > deb_build/xenia-launcher_1.0.0-1_amd64/usr/bin/xenia-launcher << EOF
+        cat > deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/usr/bin/xenia-launcher << EOF
         #!/bin/bash
         exec /usr/lib/xenia-launcher/xenia_launcher "\$@"
         EOF
-        chmod +x deb_build/xenia-launcher_1.0.0-1_amd64/usr/bin/xenia-launcher
+        chmod +x deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/usr/bin/xenia-launcher
         
         # Create desktop entry
-        cp AppDir/xenia-launcher.desktop deb_build/xenia-launcher_1.0.0-1_amd64/usr/share/applications/
+        cp AppDir/xenia-launcher.desktop deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/usr/share/applications/
         
         # Create control file
-        cat > deb_build/xenia-launcher_1.0.0-1_amd64/DEBIAN/control << EOF
+        cat > deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64/DEBIAN/control << EOF
         Package: xenia-launcher
-        Version: 1.0.0-1
+        Version: ${{ steps.version.outputs.version }}-1
         Section: games
         Priority: optional
         Architecture: amd64
@@ -136,8 +153,8 @@ jobs:
     - name: Build DEB package
       id: deb_build
       run: |
-        dpkg-deb --build deb_build/xenia-launcher_1.0.0-1_amd64
-        echo "::set-output name=deb_path::$(pwd)/deb_build/xenia-launcher_1.0.0-1_amd64.deb"
+        dpkg-deb --build deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64
+        echo "deb_path=$(pwd)/deb_build/xenia-launcher_${{ steps.version.outputs.version }}-1_amd64.deb" >> $GITHUB_OUTPUT
 
     # AppImage Building
     - name: Prepare AppDir
@@ -150,15 +167,15 @@ jobs:
       id: appimage_build
       run: |
         ARCH=x86_64 ./appimagetool AppDir/
-        mv Xenia_Launcher-x86_64.AppImage xenia-launcher-1.0.0-x86_64.AppImage
-        echo "::set-output name=appimage_path::$(pwd)/xenia-launcher-1.0.0-x86_64.AppImage"
+        mv Xenia_Launcher-x86_64.AppImage xenia-launcher-${{ steps.version.outputs.version }}-x86_64.AppImage
+        echo "appimage_path=$(pwd)/xenia-launcher-${{ steps.version.outputs.version }}-x86_64.AppImage" >> $GITHUB_OUTPUT
 
     # Upload artifacts
     - name: Upload RPM package
       uses: actions/upload-artifact@v3
       if: success() && steps.rpm_build.outputs.rpm_path != ''
       with:
-        name: xenia-launcher-rpm
+        name: xenia-launcher-${{ steps.version.outputs.version }}-rpm
         path: ${{ steps.rpm_build.outputs.rpm_path }}
         if-no-files-found: error
 
@@ -166,7 +183,7 @@ jobs:
       uses: actions/upload-artifact@v3
       if: success() && steps.deb_build.outputs.deb_path != ''
       with:
-        name: xenia-launcher-deb
+        name: xenia-launcher-${{ steps.version.outputs.version }}-deb
         path: ${{ steps.deb_build.outputs.deb_path }}
         if-no-files-found: error
 
@@ -174,15 +191,19 @@ jobs:
       uses: actions/upload-artifact@v3
       if: success() && steps.appimage_build.outputs.appimage_path != ''
       with:
-        name: xenia-launcher-appimage
+        name: xenia-launcher-${{ steps.version.outputs.version }}-appimage
         path: ${{ steps.appimage_build.outputs.appimage_path }}
         if-no-files-found: error
 
-    # Create Release (only on tags)
+    # Create Release
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Release v${{ steps.version.outputs.version }}
+        draft: false
+        prerelease: false
         files: |
           ${{ steps.rpm_build.outputs.rpm_path }}
           ${{ steps.deb_build.outputs.deb_path }}
