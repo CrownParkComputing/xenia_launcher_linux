@@ -47,8 +47,10 @@ jobs:
         License:        MIT
         URL:            https://github.com/xenia-project/xenia-launcher
         
-        BuildRequires:  libgtk-3-dev
-        Requires:       libgtk-3-0
+        BuildRequires:  gtk3-devel
+        Requires:       gtk3
+        
+        AutoReqProv: no
         
         %description
         A game launcher for the Xenia Xbox 360 emulator
@@ -88,8 +90,13 @@ jobs:
         - Initial RPM release
         EOF
 
+    - name: Mock RPM build environment
+      run: |
+        sudo ln -s /usr/include/gtk-3.0 /usr/include/gtk3
+        sudo ln -s /usr/lib/x86_64-linux-gnu/gtk-3.0 /usr/lib/gtk3
+
     - name: Build RPM package
-      run: rpmbuild --define "_topdir $(pwd)/rpm_build" -bb rpm_build/SPECS/xenia-launcher.spec
+      run: rpmbuild --define "_topdir $(pwd)/rpm_build" --nodeps -bb rpm_build/SPECS/xenia-launcher.spec
 
     - name: Upload RPM artifact
       uses: actions/upload-artifact@v3
