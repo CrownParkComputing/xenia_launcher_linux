@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as path;
 import '../providers/iso_games_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/game_stats_provider.dart';
@@ -60,12 +59,26 @@ class IsoGamesScreen extends StatelessWidget {
               onGameTap: (game) => _launchGame(context, game),
               onGameMoreTap: (game) => _showDLCDialog(context, game),
               onGameDelete: (game) => _removeGame(context, game),
+              onGameTitleEdit: (game, newTitle) => _updateGameTitle(context, game, newTitle),
+              onGameSearchTitleEdit: (game, newSearchTitle) => _updateGameSearchTitle(context, game, newSearchTitle),
               onImportTap: () => _importGame(context),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _updateGameTitle(BuildContext context, Game game, String newTitle) async {
+    final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
+    final updatedGame = game.copyWith(title: newTitle);
+    await isoProvider.updateGame(updatedGame);
+  }
+
+  Future<void> _updateGameSearchTitle(BuildContext context, Game game, String newSearchTitle) async {
+    final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
+    final updatedGame = game.copyWith(searchTitle: newSearchTitle);
+    await isoProvider.updateGame(updatedGame);
   }
 
   Future<void> _importGame(BuildContext context) async {

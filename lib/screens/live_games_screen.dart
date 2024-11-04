@@ -5,8 +5,9 @@ import '../providers/live_games_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/game_stats_provider.dart';
 import '../models/game.dart';
+import '../models/dlc.dart';
+import '../screens/dlc_dialog.dart';
 import '../widgets/game_grid.dart';
-import 'dlc_dialog.dart';
 
 class LiveGamesScreen extends StatelessWidget {
   const LiveGamesScreen({super.key});
@@ -17,22 +18,6 @@ class LiveGamesScreen extends StatelessWidget {
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Xbox Live Games'),
-        actions: [
-          if (liveProvider.config.liveGamesFolder != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => _rescanGames(context),
-              tooltip: 'Scan for changes',
-            ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _importGame(context),
-            tooltip: 'Import Game',
-          ),
-        ],
-      ),
       body: _buildBody(context, liveProvider, settingsProvider),
     );
   }
@@ -64,7 +49,7 @@ class LiveGamesScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Games',
+            'Xbox Live Games',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
@@ -76,12 +61,26 @@ class LiveGamesScreen extends StatelessWidget {
               onGameTap: (game) => _launchGame(context, game),
               onGameMoreTap: (game) => _showDLCDialog(context, game),
               onGameDelete: (game) => _removeGame(context, game),
+              onGameTitleEdit: (game, newTitle) => _updateGameTitle(context, game, newTitle),
+              onGameSearchTitleEdit: (game, newSearchTitle) => _updateGameSearchTitle(context, game, newSearchTitle),
               onImportTap: () => _importGame(context),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _updateGameTitle(BuildContext context, Game game, String newTitle) async {
+    final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
+    final updatedGame = game.copyWith(title: newTitle);
+    await liveProvider.updateGame(updatedGame);
+  }
+
+  Future<void> _updateGameSearchTitle(BuildContext context, Game game, String newSearchTitle) async {
+    final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
+    final updatedGame = game.copyWith(searchTitle: newSearchTitle);
+    await liveProvider.updateGame(updatedGame);
   }
 
   Future<void> _importGame(BuildContext context) async {
@@ -98,81 +97,22 @@ class LiveGamesScreen extends StatelessWidget {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['zip'],
-      dialogTitle: 'Select Xbox Live Game ZIP',
+      dialogTitle: 'Select Xbox Live Game',
       initialDirectory: liveProvider.config.liveGamesFolder,
     );
 
     if (result != null) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Consumer<LiveGamesProvider>(
-          builder: (context, provider, child) {
-            return Center(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: 24),
-                      Text(
-                        provider.importStatus.isNotEmpty
-                            ? provider.importStatus
-                            : 'Importing game...',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      );
-
       final game = await liveProvider.importGame(result.files.single.path!);
-
-      if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        if (game != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Successfully imported ${game.title}')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to import game')),
-          );
-        }
+      if (game != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Game imported successfully')),
+        );
       }
     }
   }
 
-  Future<void> _rescanGames(BuildContext context) async {
-    final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    await liveProvider.rescanGames();
-
-    if (context.mounted) {
-      Navigator.pop(context); // Close loading dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text('Found ${liveProvider.liveGames.length} Xbox Live games')),
-      );
-    }
-  }
-
-  Future<void> _showDLCDialog(BuildContext context, Game game) {
-    return showDialog(
+  Future<void> _showDLCDialog(BuildContext context, Game game) async {
+    await showDialog(
       context: context,
       builder: (context) => DLCDialog(game: game),
     );
@@ -223,17 +163,16 @@ class LiveGamesScreen extends StatelessWidget {
       return;
     }
 
-    if (game.executablePath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Game executable not found')),
-      );
-      return;
+    // Transform the path by replacing /run/media/jon/TVShows with F:
+    String gamePath = game.executablePath ?? game.path;
+    if (gamePath.startsWith('/run/media/jon/TVShows')) {
+      gamePath = gamePath.replaceFirst('/run/media/jon/TVShows', 'F:');
     }
 
     final result = await settingsProvider.runExecutable(
       executable,
       winePrefix,
-      [game.executablePath!],
+      [gamePath],
     );
 
     if (result.stderr != null && result.stderr!.isNotEmpty && context.mounted) {
