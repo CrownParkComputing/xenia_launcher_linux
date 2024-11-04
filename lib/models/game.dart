@@ -6,6 +6,7 @@ enum GameType { iso, live }
 class Game {
   final int? id;
   final String title;
+  final String? searchTitle;  // New field for IGDB search
   final String path;
   final String? coverPath;
   final DateTime dateAdded;
@@ -20,6 +21,7 @@ class Game {
   Game({
     this.id,
     required this.title,
+    this.searchTitle,
     required this.path,
     this.coverPath,
     this.lastUsedExecutable,
@@ -39,6 +41,7 @@ class Game {
     return {
       'id': id,
       'title': title,
+      'searchTitle': searchTitle,
       'path': path,
       'coverPath': coverPath,
       'lastUsedExecutable': lastUsedExecutable,
@@ -56,6 +59,7 @@ class Game {
     return Game(
       id: json['id'],
       title: json['title'] as String? ?? 'Unknown Game',
+      searchTitle: json['searchTitle'] as String?,
       path: json['path'] as String? ?? '',
       coverPath: json['coverPath'] as String?,
       lastUsedExecutable: json['lastUsedExecutable'] as String?,
@@ -87,6 +91,7 @@ class Game {
   Game copyWith({
     int? id,
     String? title,
+    String? searchTitle,
     String? path,
     String? coverPath,
     String? lastUsedExecutable,
@@ -101,6 +106,7 @@ class Game {
     return Game(
       id: id ?? this.id,
       title: title ?? this.title,
+      searchTitle: searchTitle ?? this.searchTitle,
       path: path ?? this.path,
       coverPath: coverPath ?? this.coverPath,
       lastUsedExecutable: lastUsedExecutable ?? this.lastUsedExecutable,
@@ -136,4 +142,7 @@ class Game {
   bool get hasDLC => dlc.isNotEmpty;
 
   String get displayPath => isLiveGame ? executablePath ?? path : path;
+  
+  // Use searchTitle if available, otherwise use title
+  String get effectiveSearchTitle => searchTitle ?? title;
 }

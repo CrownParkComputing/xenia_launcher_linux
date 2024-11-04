@@ -11,6 +11,7 @@ import 'screens/iso_games_screen.dart';
 import 'screens/live_games_screen.dart';
 import 'screens/logs_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/igdb_search_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -84,6 +85,7 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
   static const List<Widget> _screens = [
     IsoGamesScreen(),
     LiveGamesScreen(),
+    IgdbSearchScreen(),
     LogsScreen(),
   ];
 
@@ -187,6 +189,10 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
                 NavigationRailDestination(
                   icon: Icon(Icons.cloud_download),
                   label: Text('Xbox Live Games'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.search),
+                  label: Text('IGDB Search'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.article_outlined),

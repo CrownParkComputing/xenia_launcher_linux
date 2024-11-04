@@ -11,6 +11,8 @@ class GameGrid extends StatelessWidget {
   final void Function(Game) onGameTap;
   final void Function(Game) onGameMoreTap;
   final void Function(Game) onGameDelete;
+  final void Function(Game, String) onGameTitleEdit;
+  final void Function(Game, String) onGameSearchTitleEdit;
   final VoidCallback? onImportTap;
 
   const GameGrid({
@@ -20,6 +22,8 @@ class GameGrid extends StatelessWidget {
     required this.onGameTap,
     required this.onGameMoreTap,
     required this.onGameDelete,
+    required this.onGameTitleEdit,
+    required this.onGameSearchTitleEdit,
     this.onImportTap,
   });
 
@@ -75,6 +79,8 @@ class GameGrid extends StatelessWidget {
           onPlayTap: () => onGameTap(game),
           onDLCTap: () => onGameMoreTap(game),
           onDeleteTap: () => onGameDelete(game),
+          onTitleEdit: (newTitle) => onGameTitleEdit(game, newTitle),
+          onSearchTitleEdit: (newSearchTitle) => onGameSearchTitleEdit(game, newSearchTitle),
         );
       },
     );
