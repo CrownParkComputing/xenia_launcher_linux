@@ -7,8 +7,7 @@ import 'providers/iso_games_provider.dart';
 import 'providers/live_games_provider.dart';
 import 'providers/game_stats_provider.dart';
 import 'services/game_tracking_service.dart';
-import 'screens/iso_games_screen.dart';
-import 'screens/live_games_screen.dart';
+import 'screens/xbox_games_screen.dart';
 import 'screens/logs_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/igdb_search_screen.dart';
@@ -83,8 +82,7 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
   bool _isMaximized = false;
 
   static const List<Widget> _screens = [
-    IsoGamesScreen(),
-    LiveGamesScreen(),
+    XboxGamesScreen(),
     IgdbSearchScreen(),
     LogsScreen(),
   ];
@@ -183,12 +181,8 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
               leading: const SizedBox(height: 8),
               destinations: const [
                 NavigationRailDestination(
-                  icon: Icon(Icons.disc_full),
-                  label: Text('ISO Games'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.cloud_download),
-                  label: Text('Xbox Live Games'),
+                  icon: Icon(Icons.gamepad),
+                  label: Text('Xbox Games'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.search),

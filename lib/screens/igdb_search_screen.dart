@@ -3,6 +3,7 @@ import '../services/igdb_service.dart';
 import '../services/game_search_service.dart';
 import '../models/igdb_game.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:intl/intl.dart';
 
 class IgdbSearchScreen extends StatefulWidget {
   const IgdbSearchScreen({super.key});
@@ -99,7 +100,10 @@ class _IgdbSearchScreenState extends State<IgdbSearchScreen> {
                       margin: const EdgeInsets.only(bottom: 16),
                       child: InkWell(
                         onTap: () {
-                          // TODO: Handle game selection
+                          Navigator.pop(context, {
+                            'coverUrl': game.coverUrl,
+                            'igdbId': game.id,
+                          });
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
@@ -113,7 +117,19 @@ class _IgdbSearchScreenState extends State<IgdbSearchScreen> {
                                   child: CachedNetworkImage(
                                     imageUrl: game.coverUrl!,
                                     fit: BoxFit.contain,
+                                    placeholder: (context, url) => const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        const Icon(Icons.error),
                                   ),
+                                )
+                              else
+                                Container(
+                                  width: 100,
+                                  height: 150,
+                                  color: Colors.black26,
+                                  child: const Icon(Icons.gamepad, size: 48),
                                 ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -124,6 +140,26 @@ class _IgdbSearchScreenState extends State<IgdbSearchScreen> {
                                       game.name,
                                       style: Theme.of(context).textTheme.titleLarge,
                                     ),
+                                    if (game.releaseDate != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        DateFormat.yMMMd().format(game.releaseDate!),
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                    if (game.rating != null) ...[
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.star, size: 16, color: Colors.amber),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            (game.rating! / 20).toStringAsFixed(1),
+                                            style: Theme.of(context).textTheme.bodyMedium,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                     if (game.summary != null) ...[
                                       const SizedBox(height: 8),
                                       Text(
@@ -136,8 +172,14 @@ class _IgdbSearchScreenState extends State<IgdbSearchScreen> {
                                       const SizedBox(height: 8),
                                       Wrap(
                                         spacing: 8,
+                                        runSpacing: 4,
                                         children: game.genres
-                                            .map((g) => Chip(label: Text(g)))
+                                            .map((g) => Chip(
+                                                  label: Text(g),
+                                                  visualDensity: VisualDensity.compact,
+                                                  materialTapTargetSize:
+                                                      MaterialTapTargetSize.shrinkWrap,
+                                                ))
                                             .toList(),
                                       ),
                                     ],

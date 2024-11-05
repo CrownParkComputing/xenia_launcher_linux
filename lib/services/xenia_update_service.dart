@@ -126,38 +126,36 @@ class XeniaUpdateService {
           if (downloadResponse.statusCode == 200) {
             // Get the base folder path (parent directory of xeniaPath)
             final baseFolder = path.dirname(xeniaPath);
-            final canaryFolder = path.join(baseFolder, 'canary');
-
             log('Base folder: $baseFolder');
-            log('Canary folder: $canaryFolder');
-
-            // Create canary folder if it doesn't exist
-            final canaryDir = Directory(canaryFolder);
-            if (!canaryDir.existsSync()) {
-              log('Creating canary folder...');
-              canaryDir.createSync(recursive: true);
-            }
 
             // Create backup of existing files
             final backupFolder = path.join(
                 baseFolder, 'backup_${DateTime.now().millisecondsSinceEpoch}');
-            if (Directory(canaryFolder).existsSync()) {
+            if (Directory(baseFolder).existsSync()) {
               log('Creating backup at: $backupFolder');
-              await Directory(canaryFolder).rename(backupFolder);
+              // Only backup the xenia files, not the entire directory
+              for (final file in Directory(baseFolder).listSync()) {
+                if (file is File && 
+                    path.basename(file.path).toLowerCase().startsWith('xenia')) {
+                  final backupPath = path.join(backupFolder, path.basename(file.path));
+                  await Directory(path.dirname(backupPath)).create(recursive: true);
+                  await file.copy(backupPath);
+                }
+              }
             }
 
-            // Extract the ZIP contents
+            // Extract the ZIP contents directly to the base folder
             log('Extracting ZIP contents...');
             final bytes = downloadResponse.bodyBytes;
             final archive = ZipDecoder().decodeBytes(bytes);
 
-            // Extract each file to the canary folder
+            // Extract each file to the base folder
             for (final file in archive) {
               final filename = file.name;
               if (file.isFile) {
                 log('Extracting: $filename');
                 final data = file.content as List<int>;
-                final filePath = path.join(canaryFolder, filename);
+                final filePath = path.join(baseFolder, filename);
                 File(filePath)
                   ..createSync(recursive: true)
                   ..writeAsBytesSync(data);

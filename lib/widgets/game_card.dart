@@ -4,10 +4,13 @@ import '../models/game.dart';
 import '../models/igdb_game.dart';
 import '../models/config.dart';
 import '../providers/settings_provider.dart';
+import '../providers/iso_games_provider.dart';
+import '../providers/live_games_provider.dart';
 import '../services/igdb_service.dart';
 import '../services/game_search_service.dart';
 import '../screens/game_details_screen.dart';
 import '../screens/achievements_screen.dart';
+import '../widgets/dialogs/igdb_search_dialog.dart';
 import 'game_card/game_cover.dart';
 import 'game_card/game_title_section.dart';
 import 'game_card/game_actions_section.dart';
@@ -53,14 +56,14 @@ class _GameCardState extends State<GameCard> {
   @override
   void didUpdateWidget(GameCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.game.effectiveSearchTitle != widget.game.effectiveSearchTitle) {
+    if (oldWidget.game.igdbId != widget.game.igdbId) {
       _loadGameDetails();
     }
   }
 
   Future<void> _loadGameDetails() async {
     try {
-      final details = await _gameSearchService.searchGame(context, widget.game.effectiveSearchTitle);
+      final details = await _gameSearchService.searchGame(context, widget.game);
       if (mounted) {
         setState(() {
           _gameDetails = details;
@@ -71,16 +74,22 @@ class _GameCardState extends State<GameCard> {
     }
   }
 
-  void _showEditDialog() {
-    showDialog(
+  Future<void> _showIgdbSearchDialog() async {
+    final result = await showDialog<IGDBGame>(
       context: context,
-      builder: (context) => EditTitlesDialog(
-        title: widget.game.title,
-        searchTitle: widget.game.searchTitle,
-        onTitleEdit: widget.onTitleEdit,
-        onSearchTitleEdit: widget.onSearchTitleEdit,
+      builder: (context) => IgdbSearchDialog(
+        currentTitle: widget.game.title,
       ),
     );
+
+    if (result != null && mounted) {
+      final provider = widget.game.isIsoGame
+          ? Provider.of<IsoGamesProvider>(context, listen: false)
+          : Provider.of<LiveGamesProvider>(context, listen: false);
+
+      final updatedGame = widget.game.copyWith(igdbId: result.id);
+      await provider.updateGame(updatedGame);
+    }
   }
 
   double _getCardWidth(GameCardSize size) {
@@ -149,7 +158,7 @@ class _GameCardState extends State<GameCard> {
                       GameTitleSection(
                         title: widget.game.title,
                         executableDisplayName: widget.executableDisplayName,
-                        onEditTap: _showEditDialog,
+                        onEditTap: _showIgdbSearchDialog,
                       ),
                       GameActionsSection(
                         onDeleteTap: widget.onDeleteTap,
