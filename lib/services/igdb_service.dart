@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../screens/logs_screen.dart' show log;
 import 'package:http/http.dart' as http;
 import '../models/igdb_game.dart';
+import '../models/game.dart';
 
 class IGDBService {
   static const String _baseUrl = 'https://api.igdb.com/v4';
@@ -97,13 +98,15 @@ class IGDBService {
 
   Future<List<IGDBGame>> searchGames(String gameName) async {
     try {
-      log('Starting game search for: $gameName');
+      // Clean the game name using the Game model's cleanGameTitle method
+      final cleanedGameName = Game.cleanGameTitle(gameName);
+      log('Starting game search for: $cleanedGameName (original: $gameName)');
       final token = await _getAccessToken();
 
       // First get game IDs from search endpoint
       final searchQuery = '''
         fields name,game;
-        search "${gameName.replaceAll('"', '\\"')}";
+        search "${cleanedGameName.replaceAll('"', '\\"')}";
         where game != null;
         limit 10;
       ''';
