@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
 import 'providers/settings_provider.dart';
 import 'providers/iso_games_provider.dart';
 import 'providers/live_games_provider.dart';
@@ -17,7 +19,23 @@ void main() async {
 
   // Initialize window manager
   await windowManager.ensureInitialized();
-  await windowManager.setTitle('Xenia Launcher');
+
+  // Get the absolute path to the icon
+  final iconPath = path.join(Directory.current.path, 'AppDir', 'usr', 'share', 'icons', 'hicolor', '256x256', 'apps', 'xenia-launcher.svg');
+
+  // Configure window options
+  await windowManager.waitUntilReadyToShow(const WindowOptions(
+    size: Size(1280, 720),
+    center: true,
+    title: 'Xenia Launcher',
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.hidden,
+  ), () async {
+    await windowManager.setIcon(iconPath);
+    await windowManager.show();
+    await windowManager.focus();
+  });
 
   final prefs = await SharedPreferences.getInstance();
 
@@ -148,8 +166,7 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
               tooltip: 'Minimize',
             ),
             IconButton(
-              icon:
-                  Icon(_isMaximized ? Icons.fullscreen_exit : Icons.fullscreen),
+              icon: Icon(_isMaximized ? Icons.fullscreen_exit : Icons.fullscreen),
               onPressed: () async {
                 if (_isMaximized) {
                   await windowManager.unmaximize();

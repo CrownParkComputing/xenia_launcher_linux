@@ -41,10 +41,15 @@ class AchievementService {
       final launchPath = game.isLiveGame ? game.executablePath! : game.path;
       print('Launching game with path: $launchPath');
 
-      // Launch Xenia directly as a Process to maintain control
+      // Launch Xenia with wine prefix if provided
+      final command = winePrefix.isNotEmpty
+          ? ['WINEPREFIX=$winePrefix', executable, launchPath]
+          : [executable, launchPath];
+
+      // Launch Xenia with the appropriate command
       xeniaProcess = await Process.start(
-        executable,
-        [launchPath],
+        winePrefix.isNotEmpty ? 'env' : executable,
+        winePrefix.isNotEmpty ? command : [launchPath],
         workingDirectory: xeniaDir,
       );
 
@@ -68,18 +73,22 @@ class AchievementService {
       List<Achievement> achievements = [];
       int attempts = 0;
       const maxAttempts = 30; // 30 seconds max wait time
+      bool foundAchievements = false;
 
-      while (attempts < maxAttempts) {
+      while (attempts < maxAttempts && !foundAchievements) {
         await Future.delayed(const Duration(seconds: 1));
         if (await logFile.exists()) {
           final content = await logFile.readAsString();
+          print('Reading log content...');
           achievements = _parseAchievements(content);
           if (achievements.isNotEmpty) {
-            print('Successfully parsed ${achievements.length} achievements');
+            foundAchievements = true;
+            print('Successfully found ${achievements.length} achievements');
             break;
           }
         }
         attempts++;
+        print('Checking for achievements (attempt $attempts)...');
       }
 
       // Gracefully terminate Xenia
@@ -136,64 +145,71 @@ class AchievementService {
   List<Achievement> _parseAchievements(String logContent) {
     final achievements = <Achievement>[];
     final lines = logContent.split('\n');
-    bool inAchievementSection = false;
-    bool headerPassed = false;
+    bool foundAchievementsSection = false;
+    bool foundIdHeader = false;
 
+    print('Starting achievement parse...');
+    
     for (final line in lines) {
-      final trimmedLine = line.trim();
-
-      // Stop parsing if we hit the PROPERTIES section
-      if (trimmedLine.contains('PROPERTIES')) {
+      // Check if we've hit the PROPERTIES section
+      if (line.contains('PROPERTIES')) {
+        print('Found PROPERTIES section, stopping parse');
         break;
       }
 
-      // Start parsing after we find the ACHIEVEMENTS section
-      if (trimmedLine.contains('ACHIEVEMENTS')) {
-        inAchievementSection = true;
+      // Look for achievements section
+      if (!foundAchievementsSection && line.contains('ACHIEVEMENTS')) {
+        print('Found ACHIEVEMENTS section');
+        foundAchievementsSection = true;
         continue;
       }
 
-      // Skip until we find the header row
-      if (inAchievementSection && trimmedLine.contains('ID | Title')) {
-        headerPassed = true;
+      // Skip separator lines
+      if (line.contains('+-----+')) {
         continue;
       }
 
-      // Skip separator rows
-      if (trimmedLine.contains('----+')) {
+      // Look for ID header after finding achievements section
+      if (foundAchievementsSection && !foundIdHeader && line.contains('| ID')) {
+        print('Found ID header row');
+        foundIdHeader = true;
         continue;
       }
 
-      // Only process achievement lines after header and if they match our format
-      if (inAchievementSection &&
-          headerPassed &&
-          trimmedLine.startsWith('| ') &&
-          trimmedLine.endsWith(' |')) {
-        final parts = trimmedLine
+      // Process achievement lines - must start and end with | and contain achievement data
+      if (foundIdHeader && line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        final cleanLine = line.trim();
+        print('Found achievement line: $cleanLine');
+        
+        // Split by | and clean up each part
+        final parts = cleanLine
             .split('|')
             .map((part) => part.trim())
             .where((part) => part.isNotEmpty)
             .toList();
+            
+        print('Split parts: $parts');
 
         if (parts.length >= 4) {
-          final id = parts[0];
-          final title = parts[1];
-          final description = parts[2];
-          final gamerscore = parts[3].replaceAll(RegExp(r'[^\d]'), '');
-
           try {
-            final achievement =
-                Achievement.fromLogLine(id, title, description, gamerscore);
+            final achievement = Achievement.fromLogLine(
+              parts[0],  // ID
+              parts[1],  // Title
+              parts[2],  // Description
+              parts[3]   // Gamerscore
+            );
             achievements.add(achievement);
-            print('Added achievement: $title');
+            print('Successfully added achievement: ${parts[1]}');
           } catch (e) {
             print('Error creating achievement: $e');
           }
+        } else {
+          print('Line did not have enough parts: ${parts.length} parts found');
         }
       }
     }
 
-    print('Found ${achievements.length} achievements');
+    print('Finished parsing. Found ${achievements.length} achievements');
     return achievements;
   }
 }
