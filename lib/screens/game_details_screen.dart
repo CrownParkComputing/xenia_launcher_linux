@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/igdb_game.dart';
 import '../models/game.dart';
 import '../services/igdb_service.dart';
+import '../services/game_search_service.dart';
 import '../providers/game_stats_provider.dart';
 import 'achievements_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -19,6 +20,7 @@ class GameDetailsScreen extends StatefulWidget {
 
 class _GameDetailsScreenState extends State<GameDetailsScreen> {
   final IGDBService _igdbService = IGDBService();
+  late final GameSearchService _gameSearchService;
   IGDBGame? _gameDetails;
   bool _isLoading = true;
   String? _error;
@@ -26,13 +28,14 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _gameSearchService = GameSearchService(_igdbService);
     _loadGameDetails();
   }
 
   Future<void> _loadGameDetails() async {
     try {
       developer.log('Fetching details for game: ${widget.game.title}');
-      final details = await _igdbService.getGameDetails(widget.game.title);
+      final details = await _gameSearchService.searchGame(context, widget.game);
       developer.log('Received game details: $details');
 
       if (mounted) {

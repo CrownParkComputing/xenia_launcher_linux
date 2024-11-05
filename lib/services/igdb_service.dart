@@ -46,6 +46,50 @@ class IGDBService {
     }
   }
 
+  Future<IGDBGame?> getGameById(int id) async {
+    try {
+      log('Getting game details for ID: $id');
+      final token = await _getAccessToken();
+
+      final detailsQuery = '''
+        fields id,name,summary,screenshots.url,genres.name,game_modes.name,cover.url,rating,release_dates.date;
+        where id = $id;
+      ''';
+
+      log('IGDB Details Query:\n$detailsQuery');
+
+      final detailsResponse = await http.post(
+        Uri.parse('$_baseUrl/games'),
+        headers: {
+          'Client-ID': _clientId,
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+        body: detailsQuery,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Connection timeout while fetching game details');
+        },
+      );
+
+      log('IGDB details response status: ${detailsResponse.statusCode}');
+      log('IGDB details response body: ${detailsResponse.body}');
+
+      if (detailsResponse.statusCode != 200) {
+        throw Exception(
+            'Failed to fetch game details: HTTP ${detailsResponse.statusCode}');
+      }
+
+      final List<dynamic> games = json.decode(detailsResponse.body);
+      return games.isNotEmpty ? IGDBGame.fromJson(games.first) : null;
+
+    } catch (e) {
+      log('Error in getGameById: $e');
+      return null;
+    }
+  }
+
   Future<IGDBGame?> getGameDetails(String gameName) async {
     final results = await searchGames(gameName);
     return results.isNotEmpty ? results.first : null;
@@ -106,7 +150,7 @@ class IGDBService {
 
       // Get detailed game info
       final detailsQuery = '''
-        fields name,summary,screenshots.url,genres.name,game_modes.name,cover.url,rating,release_dates.date;
+        fields id,name,summary,screenshots.url,genres.name,game_modes.name,cover.url,rating,release_dates.date;
         where id = (${gameIds.join(',')});
         limit ${gameIds.length};
       ''';

@@ -17,9 +17,7 @@ class LiveGamesScreen extends StatelessWidget {
     final liveProvider = Provider.of<LiveGamesProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
-    return Scaffold(
-      body: _buildBody(context, liveProvider, settingsProvider),
-    );
+    return _buildBody(context, liveProvider, settingsProvider);
   }
 
   Widget _buildBody(
@@ -32,7 +30,7 @@ class LiveGamesScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Welcome to Xenia Launcher'),
+            const Text('Please configure Xbox Live Games folder'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/settings'),

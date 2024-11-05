@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
+
 class IGDBGame {
+  final int id;
   final String name;
   final String? summary;
   final String? coverUrl;
@@ -9,6 +12,7 @@ class IGDBGame {
   final DateTime? releaseDate;
 
   IGDBGame({
+    required this.id,
     required this.name,
     this.summary,
     this.coverUrl,
@@ -20,13 +24,30 @@ class IGDBGame {
   });
 
   factory IGDBGame.fromJson(Map<String, dynamic> json) {
+    DateTime? parseReleaseDate() {
+      try {
+        if (json['release_dates'] != null && 
+            (json['release_dates'] as List).isNotEmpty &&
+            json['release_dates'][0]['date'] != null) {
+          return DateTime.fromMillisecondsSinceEpoch(
+            (json['release_dates'][0]['date'] as int) * 1000);
+        }
+      } catch (e) {
+        debugPrint('Error parsing release date: $e');
+      }
+      return null;
+    }
+
     return IGDBGame(
+      id: json['id'] as int,
       name: json['name'] as String? ?? 'Unknown Game',
       summary: json['summary'] as String?,
-      coverUrl: json['cover'] != null ? 
-        'https://images.igdb.com/igdb/image/upload/t_cover_big/${json['cover']['url'].split('/').last}' : null,
+      coverUrl: json['cover'] != null && json['cover']['url'] != null
+          ? 'https://images.igdb.com/igdb/image/upload/t_cover_big/${json['cover']['url'].split('/').last}'
+          : null,
       screenshots: (json['screenshots'] as List<dynamic>?)
-          ?.map((s) => 'https://images.igdb.com/igdb/image/upload/t_screenshot_big/${s['url'].split('/').last}')
+          ?.where((s) => s['url'] != null)
+          .map((s) => 'https://images.igdb.com/igdb/image/upload/t_screenshot_big/${s['url'].split('/').last}')
           .toList() ??
           [],
       genres: (json['genres'] as List<dynamic>?)
@@ -38,10 +59,7 @@ class IGDBGame {
           .toList() ??
           [],
       rating: json['rating'] != null ? (json['rating'] as num).toDouble() : null,
-      releaseDate: json['release_dates'] != null && (json['release_dates'] as List).isNotEmpty
-          ? DateTime.fromMillisecondsSinceEpoch(
-              (json['release_dates'][0]['date'] as int) * 1000)
-          : null,
+      releaseDate: parseReleaseDate(),
     );
   }
 }

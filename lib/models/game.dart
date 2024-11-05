@@ -17,6 +17,7 @@ class Game {
   final DateTime? lastPlayed;
   final Duration totalPlayTime;
   final List<Achievement> achievements;
+  final int? igdbId;  // Added IGDB ID field
 
   Game({
     this.id,
@@ -32,6 +33,7 @@ class Game {
     this.lastPlayed,
     Duration? totalPlayTime,
     List<Achievement>? achievements,
+    this.igdbId,  // Added to constructor
   })  : dateAdded = dateAdded ?? DateTime.now(),
         dlc = dlc ?? [],
         totalPlayTime = totalPlayTime ?? Duration.zero,
@@ -52,6 +54,7 @@ class Game {
       'lastPlayed': lastPlayed?.toIso8601String(),
       'totalPlayTime': totalPlayTime.inSeconds,
       'achievements': achievements.map((a) => a.toJson()).toList(),
+      'igdbId': igdbId,  // Added to JSON serialization
     };
   }
 
@@ -85,6 +88,7 @@ class Game {
               ?.map((a) => Achievement.fromJson(a as Map<String, dynamic>))
               .toList() ??
           [],
+      igdbId: json['igdbId'] as int?,  // Added to JSON deserialization
     );
   }
 
@@ -102,6 +106,7 @@ class Game {
     DateTime? lastPlayed,
     Duration? totalPlayTime,
     List<Achievement>? achievements,
+    int? igdbId,  // Added to copyWith
   }) {
     return Game(
       id: id ?? this.id,
@@ -117,6 +122,7 @@ class Game {
       lastPlayed: lastPlayed ?? this.lastPlayed,
       totalPlayTime: totalPlayTime ?? this.totalPlayTime,
       achievements: achievements ?? List.from(this.achievements),
+      igdbId: igdbId ?? this.igdbId,  // Added to copyWith
     );
   }
 

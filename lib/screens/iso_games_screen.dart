@@ -15,9 +15,7 @@ class IsoGamesScreen extends StatelessWidget {
     final isoProvider = Provider.of<IsoGamesProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
-    return Scaffold(
-      body: _buildBody(context, isoProvider, settingsProvider),
-    );
+    return _buildBody(context, isoProvider, settingsProvider);
   }
 
   Widget _buildBody(
@@ -30,7 +28,7 @@ class IsoGamesScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Welcome to Xenia Launcher'),
+            const Text('Please configure ISO Games folder'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/settings'),
