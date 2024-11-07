@@ -15,6 +15,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Get version and commit info
       id: info
@@ -46,7 +48,6 @@ jobs:
     - name: Build Linux Release
       run: flutter build linux --release
 
-    # RPM Package Building
     - name: Create RPM structure
       run: |
         mkdir -p rpm_build/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
@@ -82,7 +83,6 @@ jobs:
         
         # Create launcher script
         cat > %{buildroot}/usr/bin/xenia-launcher << EOF2
-        #!/bin/bash
         exec /usr/lib/xenia-launcher/xenia_launcher "\$@"
         EOF2
         chmod +x %{buildroot}/usr/bin/xenia-launcher
@@ -115,7 +115,6 @@ jobs:
         cp "$RPM_PATH" ./xenia-launcher-${{ steps.info.outputs.version }}.rpm
         echo "rpm_path=xenia-launcher-${{ steps.info.outputs.version }}.rpm" >> $GITHUB_OUTPUT
 
-    # DEB Package Building
     - name: Create DEB structure
       run: |
         mkdir -p deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64/DEBIAN
@@ -130,7 +129,6 @@ jobs:
         
         # Create launcher script
         cat > deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64/usr/bin/xenia-launcher << EOF
-        #!/bin/bash
         exec /usr/lib/xenia-launcher/xenia_launcher "\$@"
         EOF
         chmod +x deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64/usr/bin/xenia-launcher
@@ -158,7 +156,6 @@ jobs:
         cp deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64.deb ./xenia-launcher-${{ steps.info.outputs.version }}.deb
         echo "deb_path=xenia-launcher-${{ steps.info.outputs.version }}.deb" >> $GITHUB_OUTPUT
 
-    # AppImage Building
     - name: Prepare AppDir
       run: |
         chmod +x appimagetool
@@ -172,7 +169,6 @@ jobs:
         mv Xenia_Launcher-x86_64.AppImage xenia-launcher-${{ steps.info.outputs.version }}-x86_64.AppImage
         echo "appimage_path=xenia-launcher-${{ steps.info.outputs.version }}-x86_64.AppImage" >> $GITHUB_OUTPUT
 
-    # Create Release and Upload Assets
     - name: Release with Assets
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v2
