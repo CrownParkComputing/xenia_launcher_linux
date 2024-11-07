@@ -1,7 +1,7 @@
 name: xenia_launcher
 description: A launcher for Xenia emulator
 publish_to: 'none'
-version: 1.0.1+5  # Testing workflow trigger after fixing workflow location
+version: 1.0.1+6  # Trigger workflow test
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
