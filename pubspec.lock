@@ -184,6 +184,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.18.1"
+<<<<<<< HEAD
   js:
     dependency: transitive
     description:
@@ -192,6 +193,8 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.7"
+=======
+>>>>>>> a9b5333f8d28142886d3fcc93f648af72275ccc2
   lints:
     dependency: transitive
     description:
