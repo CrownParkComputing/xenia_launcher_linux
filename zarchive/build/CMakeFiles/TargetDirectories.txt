@@ -1,0 +1,7 @@
+/home/jon/Desktop/xenia_launcher/zarchive/build/CMakeFiles/zarchive.dir
+/home/jon/Desktop/xenia_launcher/zarchive/build/CMakeFiles/edit_cache.dir
+/home/jon/Desktop/xenia_launcher/zarchive/build/CMakeFiles/rebuild_cache.dir
+/home/jon/Desktop/xenia_launcher/zarchive/build/CMakeFiles/list_install_components.dir
+/home/jon/Desktop/xenia_launcher/zarchive/build/CMakeFiles/install.dir
+/home/jon/Desktop/xenia_launcher/zarchive/build/CMakeFiles/install/local.dir
+/home/jon/Desktop/xenia_launcher/zarchive/build/CMakeFiles/install/strip.dir

@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'providers/settings_provider.dart';
+import 'providers/folder_provider.dart';
 import 'providers/iso_games_provider.dart';
 import 'providers/live_games_provider.dart';
 import 'providers/game_stats_provider.dart';
@@ -13,6 +14,8 @@ import 'screens/xbox_games_screen.dart';
 import 'screens/logs_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/igdb_search_screen.dart';
+import 'screens/xbox_iso_extractor_screen.dart';
+import 'zarchive/screens/zarchive_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +47,9 @@ void main() async {
       providers: [
         ChangeNotifierProvider(
           create: (_) => SettingsProvider(prefs),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => FolderProvider(prefs),
         ),
         ChangeNotifierProxyProvider<SettingsProvider, IsoGamesProvider>(
           create: (context) => IsoGamesProvider(
@@ -103,6 +109,8 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
     XboxGamesScreen(),
     IgdbSearchScreen(),
     LogsScreen(),
+    XboxIsoExtractorScreen(),
+    ZArchiveScreen(),
   ];
 
   @override
@@ -119,7 +127,6 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
   }
 
   void _init() async {
-    // Add this line to override the default close handler
     await windowManager.setPreventClose(true);
     setState(() {});
   }
@@ -208,6 +215,14 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
                 NavigationRailDestination(
                   icon: Icon(Icons.article_outlined),
                   label: Text('Logs'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.extension),
+                  label: Text('ISO Extractor'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.archive),
+                  label: Text('ZArchiver'),
                 ),
               ],
               trailing: Container(
