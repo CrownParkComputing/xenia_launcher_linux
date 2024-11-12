@@ -3,118 +3,124 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'zarchive_types.dart';
 
-// Native structs
-@Packed(8)
-final class ZArchiveFileInfo extends Struct {
-  external Pointer<Utf8> path;
-  @Uint64()
-  external int size;
-  @Uint64()
-  external int offset;
-}
-
-@Packed(8)
-final class ZArchiveFileList extends Struct {
-  external Pointer<ZArchiveFileInfo> files;
-  @Size()
-  external int count;
-}
-
 // Native function signatures
-typedef _ZArchiveWriterCreate = Pointer Function(
+typedef _ZArchiveWriterCreate = Pointer<Void> Function(
     Pointer<NativeFunction<NewOutputFileCb>> newFileCb,
     Pointer<NativeFunction<WriteOutputDataCb>> writeDataCb,
     Pointer<Void> ctx
 );
 
-typedef _ZArchiveWriterDestroy = Void Function(Pointer writer);
+typedef _ZArchiveWriterDestroy = Void Function(
+    Pointer<Void> writer
+);
 
 typedef _ZArchiveWriterStartFile = Int32 Function(
-    Pointer writer,
+    Pointer<Void> writer,
     Pointer<Utf8> path
 );
 
 typedef _ZArchiveWriterAppendData = Void Function(
-    Pointer writer,
+    Pointer<Void> writer,
     Pointer<Void> data,
     Size size
 );
 
 typedef _ZArchiveWriterMakeDir = Int32 Function(
-    Pointer writer,
+    Pointer<Void> writer,
     Pointer<Utf8> path,
     Int32 recursive
 );
 
-typedef _ZArchiveWriterFinalize = Void Function(Pointer writer);
+typedef _ZArchiveWriterFinalize = Void Function(
+    Pointer<Void> writer
+);
 
-typedef _ZArchiveReaderCreate = Pointer Function(
+typedef _ZArchiveReaderCreate = Pointer<Void> Function(
     Pointer<NativeFunction<ReadInputDataCb>> readDataCb,
     Pointer<Void> ctx
 );
 
-typedef _ZArchiveReaderDestroy = Void Function(Pointer reader);
+typedef _ZArchiveReaderDestroy = Void Function(
+    Pointer<Void> reader
+);
 
-typedef _ZArchiveReaderInitialize = Int32 Function(Pointer reader);
+typedef _ZArchiveReaderInitialize = Int32 Function(
+    Pointer<Void> reader
+);
 
-typedef _ZArchiveReaderListFiles = Pointer<ZArchiveFileList> Function(Pointer reader);
+typedef _ZArchiveReaderListFiles = Pointer<ZArchiveFileList> Function(
+    Pointer<Void> reader
+);
 
-typedef _ZArchiveFileListFree = Void Function(Pointer<ZArchiveFileList> list);
+typedef _ZArchiveFileListFree = Void Function(
+    Pointer<ZArchiveFileList> list
+);
 
 typedef _ZArchiveReaderExtractFile = Int32 Function(
-    Pointer reader,
+    Pointer<Void> reader,
     Pointer<Utf8> path,
     Pointer<Utf8> outputPath
 );
 
 // Dart function signatures
-typedef ZArchiveWriterCreate = Pointer Function(
+typedef ZArchiveWriterCreate = Pointer<Void> Function(
     Pointer<NativeFunction<NewOutputFileCb>> newFileCb,
     Pointer<NativeFunction<WriteOutputDataCb>> writeDataCb,
     Pointer<Void> ctx
 );
 
-typedef ZArchiveWriterDestroy = void Function(Pointer writer);
+typedef ZArchiveWriterDestroy = void Function(
+    Pointer<Void> writer
+);
 
 typedef ZArchiveWriterStartFile = int Function(
-    Pointer writer,
+    Pointer<Void> writer,
     Pointer<Utf8> path
 );
 
 typedef ZArchiveWriterAppendData = void Function(
-    Pointer writer,
+    Pointer<Void> writer,
     Pointer<Void> data,
     int size
 );
 
 typedef ZArchiveWriterMakeDir = int Function(
-    Pointer writer,
+    Pointer<Void> writer,
     Pointer<Utf8> path,
     int recursive
 );
 
-typedef ZArchiveWriterFinalize = void Function(Pointer writer);
+typedef ZArchiveWriterFinalize = void Function(
+    Pointer<Void> writer
+);
 
-typedef ZArchiveReaderCreate = Pointer Function(
+typedef ZArchiveReaderCreate = Pointer<Void> Function(
     Pointer<NativeFunction<ReadInputDataCb>> readDataCb,
     Pointer<Void> ctx
 );
 
-typedef ZArchiveReaderDestroy = void Function(Pointer reader);
+typedef ZArchiveReaderDestroy = void Function(
+    Pointer<Void> reader
+);
 
-typedef ZArchiveReaderInitialize = int Function(Pointer reader);
+typedef ZArchiveReaderInitialize = int Function(
+    Pointer<Void> reader
+);
 
-typedef ZArchiveReaderListFiles = Pointer<ZArchiveFileList> Function(Pointer reader);
+typedef ZArchiveReaderListFiles = Pointer<ZArchiveFileList> Function(
+    Pointer<Void> reader
+);
 
-typedef ZArchiveFileListFree = void Function(Pointer<ZArchiveFileList> list);
+typedef ZArchiveFileListFree = void Function(
+    Pointer<ZArchiveFileList> list
+);
 
 typedef ZArchiveReaderExtractFile = int Function(
-    Pointer reader,
+    Pointer<Void> reader,
     Pointer<Utf8> path,
     Pointer<Utf8> outputPath
 );
 
-// Bindings class
 class ZArchiveBindings {
   late final DynamicLibrary _lib;
   

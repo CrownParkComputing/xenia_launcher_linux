@@ -92,8 +92,8 @@ class IsoGamesScreen extends StatelessWidget {
 
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['iso'],
-      dialogTitle: 'Select Xbox 360 ISO',
+      allowedExtensions: ['iso', 'zar'],
+      dialogTitle: 'Select Xbox 360 Game File',
       initialDirectory: isoProvider.config.isoFolder,
     );
 

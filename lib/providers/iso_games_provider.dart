@@ -4,11 +4,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
 import '../models/game.dart';
 import '../services/achievement_service.dart';
+import '../services/zarchive_service.dart';
 import '../providers/settings_provider.dart';
 import 'base_provider.dart';
 
 class IsoGamesProvider extends BaseProvider {
   final AchievementService _achievementService = AchievementService();
+  final ZArchiveService _archiveService = ZArchiveService();
   final SettingsProvider _settingsProvider;
 
   IsoGamesProvider(SharedPreferences prefs, this._settingsProvider)
@@ -30,13 +32,15 @@ class IsoGamesProvider extends BaseProvider {
     try {
       final dir = Directory(config.isoFolder!);
       await for (final entity in dir.list(recursive: true)) {
-        if (entity is File && entity.path.toLowerCase().endsWith('.iso')) {
+        if (entity is File && 
+            (entity.path.toLowerCase().endsWith('.iso') || 
+             entity.path.toLowerCase().endsWith('.zar'))) {
           final path = entity.path;
           existingFiles.add(path);
 
           if (!games.any((g) => g.path == path)) {
-            final title =
-                path.split(Platform.pathSeparator).last.replaceAll('.iso', '');
+            final extension = path.toLowerCase().endsWith('.iso') ? '.iso' : '.zar';
+            final title = path.split(Platform.pathSeparator).last.replaceAll(extension, '');
             final game = Game(
               title: title,
               path: path,
@@ -64,7 +68,7 @@ class IsoGamesProvider extends BaseProvider {
       // Sort new games by title
       newGames.sort((a, b) => a.title.compareTo(b.title));
     } catch (e) {
-      debugPrint('Error scanning for ISO games: $e');
+      debugPrint('Error scanning for ISO/ZAR games: $e');
     }
 
     return (newGames: newGames, removedGames: removedGames);
@@ -82,19 +86,21 @@ class IsoGamesProvider extends BaseProvider {
     await updateGame(updatedGame);
   }
 
-  Future<void> importGame(String isoPath) async {
-    if (!isoPath.toLowerCase().endsWith('.iso')) return;
+  Future<void> importGame(String gamePath) async {
+    final isIso = gamePath.toLowerCase().endsWith('.iso');
+    final isZar = gamePath.toLowerCase().endsWith('.zar');
+    if (!isIso && !isZar) return;
 
-    final title =
-        isoPath.split(Platform.pathSeparator).last.replaceAll('.iso', '');
+    final extension = isIso ? '.iso' : '.zar';
+    final title = gamePath.split(Platform.pathSeparator).last.replaceAll(extension, '');
     print('Importing game: $title');
-    print('ISO path: $isoPath');
+    print('Game path: $gamePath');
 
     try {
       // Create game with original path
       final game = Game(
         title: title,
-        path: isoPath,
+        path: gamePath,
         type: GameType.iso,
       );
 
@@ -104,8 +110,36 @@ class IsoGamesProvider extends BaseProvider {
       // Extract achievements if Xenia is configured
       if (config.baseFolder != null && config.winePrefix != null) {
         print('Extracting achievements during game import...');
+
+        String gamePath = game.path;
+        if (isZar) {
+          // Extract zar to temp directory for achievement extraction
+          final tempDir = await Directory.systemTemp.createTemp('xenia_launcher_');
+          await _archiveService.extractArchive(
+            game.path,
+            tempDir.path,
+            (current, total) {},
+          );
+
+          // Find default.xex in extracted files
+          File? xexFile;
+          await for (var entity in tempDir.list(recursive: true)) {
+            if (entity is File && path.basename(entity.path) == 'default.xex') {
+              xexFile = entity;
+              break;
+            }
+          }
+
+          if (xexFile != null) {
+            gamePath = xexFile.path;
+          }
+        }
+
         final achievements = await _achievementService.extractAchievements(
-            game, config.baseFolder!, config.winePrefix!, _settingsProvider);
+            game.copyWith(path: gamePath), // Use temp path for zar files
+            config.baseFolder!,
+            config.winePrefix!,
+            _settingsProvider);
 
         // Update game with achievements
         if (achievements.isNotEmpty) {
@@ -114,6 +148,14 @@ class IsoGamesProvider extends BaseProvider {
           print('Game updated with ${achievements.length} achievements');
         } else {
           print('No achievements found');
+        }
+
+        // Clean up temp directory for zar files
+        if (isZar) {
+          final tempDir = path.dirname(gamePath);
+          if (tempDir.contains('xenia_launcher_')) {
+            await Directory(tempDir).delete(recursive: true);
+          }
         }
       } else {
         print('Xenia not configured, skipping achievement extraction');

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/zarchive_service.dart';
 
 class XboxIsoExtractorScreen extends StatefulWidget {
   const XboxIsoExtractorScreen({super.key});
@@ -17,13 +18,13 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
   String? selectedIso;
   String outputText = '';
   bool isProcessing = false;
+  final ZArchiveService _archiveService = ZArchiveService();
   
   List<String> availableIsos = [];
 
   @override
   void initState() {
     super.initState();
-    // Use WidgetsBinding to ensure context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setDefaultIsoFolder(context);
     });
@@ -52,7 +53,6 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
 
       final directory = Directory(selectedFolder!);
       
-      // Check if directory exists
       if (!directory.existsSync()) {
         setState(() {
           outputText = 'ISO Folder does not exist: $selectedFolder';
@@ -61,7 +61,6 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
         return;
       }
 
-      // Improved ISO file detection
       final isoFiles = directory
           .listSync(recursive: false)
           .where((file) => 
@@ -91,7 +90,91 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
     });
   }
 
-  // Rest of the methods remain the same as in the previous implementation...
+  Future<void> _createArchive(String sourcePath) async {
+    setState(() {
+      isProcessing = true;
+      outputText = 'Creating archive...';
+    });
+
+    try {
+      final settings = context.read<SettingsProvider>();
+      final defaultCreatePath = settings.defaultCreatePath;
+      if (defaultCreatePath == null) {
+        setState(() {
+          outputText = 'Please set Archive Save Location in settings';
+        });
+        return;
+      }
+
+      final folderName = path.basename(sourcePath);
+      final saveFile = File('$defaultCreatePath${Platform.pathSeparator}$folderName.zar');
+
+      await _archiveService.createArchive(
+        sourcePath, 
+        saveFile.path, 
+        (current, total) {
+          setState(() {
+            outputText = 'Creating archive: ${((current / total) * 100).toStringAsFixed(1)}%';
+          });
+        }
+      );
+
+      setState(() {
+        outputText = 'Archive created: ${saveFile.path}';
+      });
+
+      // Ask if user wants to delete the source folder
+      if (!mounted) return;
+      final shouldDelete = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete Source Folder?'),
+          content: Text('Would you like to delete the extracted folder?\n\n$sourcePath'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldDelete == true) {
+        await Directory(sourcePath).delete(recursive: true);
+        setState(() {
+          outputText += '\nSource folder deleted';
+        });
+      }
+
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Archive Created'),
+          content: Text('Archive saved to:\n${saveFile.path}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+    } catch (e) {
+      setState(() {
+        outputText = 'Error creating archive: $e';
+      });
+    } finally {
+      setState(() {
+        isProcessing = false;
+      });
+    }
+  }
+
   Future<void> listContents() async {
     if (selectedIso == null) {
       setState(() {
@@ -145,13 +228,12 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
 
     try {
       final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-      final defaultExtractionPath = path.join(settingsProvider.config.baseFolder ?? '/home/jon', 'Extractions');
+      final defaultExtractionPath = settingsProvider.defaultExtractPath ?? 
+        path.join(settingsProvider.config.baseFolder ?? '/home/jon', 'Extractions');
 
-      // Create extraction subfolder based on ISO name
       final isoName = path.basenameWithoutExtension(selectedIso!);
       final extractionFolder = path.join(defaultExtractionPath, isoName);
       
-      // Ensure extraction folder exists
       await Directory(extractionFolder).create(recursive: true);
 
       final executable = path.join(Directory.current.path, 'tools', 'extract-xiso');
@@ -168,6 +250,31 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
         }
         outputText += '\nExtracted to: $extractionFolder';
       });
+
+      // Show dialog asking if user wants to create archive
+      if (!mounted) return;
+      final shouldCreateArchive = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Create Archive?'),
+          content: const Text('Would you like to create a ZAR archive from the extracted files?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Yes'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldCreateArchive == true) {
+        await _createArchive(extractionFolder);
+      }
+
     } catch (e) {
       setState(() {
         outputText = 'Error: ${e.toString()}';
@@ -282,7 +389,7 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: (selectedIso != null && !isProcessing) ? extractContents : null,
-                    child: const Text('Extract (Skip Updates)'),
+                    child: const Text('Extract & Archive'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -303,7 +410,7 @@ class _XboxIsoExtractorScreenState extends State<XboxIsoExtractorScreen> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: SingleChildScrollView(
-                  controller: ScrollController(), // Ensures scrolling
+                  controller: ScrollController(),
                   child: Text(outputText),
                 ),
               ),

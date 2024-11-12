@@ -14,9 +14,28 @@ class SettingsProvider extends BaseProvider {
   String? _latestVersion;
   bool _isCheckingUpdate = false;
   String _updateStatus = '';
+  
+  // Archive settings
+  static const String _defaultCreatePathKey = 'default_create_path';
+  static const String _defaultExtractPathKey = 'default_extract_path';
 
   SettingsProvider(SharedPreferences prefs) : super(prefs);
 
+  // Archive getters and setters
+  String? get defaultCreatePath => prefs.getString(_defaultCreatePathKey);
+  String? get defaultExtractPath => prefs.getString(_defaultExtractPathKey);
+
+  Future<void> setDefaultCreatePath(String path) async {
+    await prefs.setString(_defaultCreatePathKey, path);
+    notifyListeners();
+  }
+
+  Future<void> setDefaultExtractPath(String path) async {
+    await prefs.setString(_defaultExtractPathKey, path);
+    notifyListeners();
+  }
+
+  // Existing getters
   String? get latestVersion => _latestVersion;
   bool get isCheckingUpdate => _isCheckingUpdate;
   String get updateStatus => _updateStatus;

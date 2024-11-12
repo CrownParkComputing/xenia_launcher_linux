@@ -17,6 +17,10 @@ class BaseProvider with ChangeNotifier {
   Config get config => _config;
   List<Game> get games => _games;
 
+  // Protected getter for SharedPreferences
+  @protected
+  SharedPreferences get prefs => _prefs;
+
   Future<void> _loadConfig() async {
     final configStr = _prefs.getString('config');
     if (configStr != null) {

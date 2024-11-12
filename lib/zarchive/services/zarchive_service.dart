@@ -1,3 +1,5 @@
+// lib/zarchive/services/zarchive_service.dart
+
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:typed_data';
@@ -18,8 +20,8 @@ class ZArchiveService {
   ZArchiveService() : _bindings = ZArchiveBindings();
 
   Future<void> createArchive(
-    String inputPath, 
-    String outputPath, 
+    String inputPath,
+    String outputPath,
     ProgressCallback onProgress,
   ) async {
     final inputDir = Directory(inputPath);
@@ -32,12 +34,12 @@ class ZArchiveService {
     int totalBytes = 0;
     for (var file in files) {
       if (file is File) {
-        totalBytes += await file.length();
+        totalBytes += await file.length() as int;
       }
     }
 
     int processedBytes = 0;
-    Pointer? writer;
+    Pointer<Void>? writer;
 
     try {
       _currentOutputFile = await File(outputPath).open(mode: FileMode.write);
@@ -52,9 +54,9 @@ class ZArchiveService {
       // Process all files
       for (var entity in files) {
         if (entity is! File) continue;
-        
+
         final relativePath = path.relative(entity.path, from: inputDir.path);
-        
+
         // Ensure parent directories exist in archive
         var parent = path.dirname(relativePath);
         if (parent != '.') {
@@ -79,7 +81,7 @@ class ZArchiveService {
         final data = calloc<Uint8>(fileBytes.length);
         final byteList = data.asTypedList(fileBytes.length);
         byteList.setAll(0, fileBytes);
-        _bindings.appendData(writer, data.cast(), fileBytes.length);
+        _bindings.appendData(writer, data.cast<Void>(), fileBytes.length);
         calloc.free(data);
 
         processedBytes += fileBytes.length;
@@ -88,7 +90,6 @@ class ZArchiveService {
 
       // Finalize archive
       _bindings.finalize(writer);
-
     } finally {
       if (writer != null) {
         _bindings.destroyWriter(writer);
@@ -97,91 +98,47 @@ class ZArchiveService {
     }
   }
 
-  Future<List<ZArchiveEntry>> extractArchive(
+Future<List<ZArchiveEntry>> extractArchive(
     String archivePath,
     String outputPath,
     ProgressCallback onProgress,
   ) async {
     final entries = <ZArchiveEntry>[];
-    Pointer? reader;
+    Pointer<Void>? reader;
     
     try {
-      // Open input file and get its length
       _currentInputFile = await File(archivePath).open(mode: FileMode.read);
       _currentInputFileLength = await _currentInputFile.length();
       
-      // Create read callback
       final readDataCb = Pointer.fromFunction<ReadInputDataCb>(_onReadData);
-      
-      // Create reader
       reader = _bindings.createReader(readDataCb, nullptr);
+      
       if (reader == nullptr) {
         throw Exception('Failed to create archive reader');
       }
 
-      // Initialize reader
       final initResult = _bindings.initializeReader(reader);
       if (initResult == 0) {
         throw Exception('Failed to initialize archive reader');
       }
 
-      // Get file list
-      final fileList = _bindings.listFiles(reader);
-      if (fileList == nullptr) {
-        throw Exception('Failed to list archive files');
+      // Create output directory if it doesn't exist
+      final outputDir = Directory(outputPath);
+      if (!outputDir.existsSync()) {
+        outputDir.createSync(recursive: true);
       }
 
-      try {
-        // Create output directory if it doesn't exist
-        final outputDir = Directory(outputPath);
-        if (!outputDir.existsSync()) {
-          outputDir.createSync(recursive: true);
+      // Extract all files
+      await _extractDirectory(reader, "", outputPath, entries, onProgress);
+      
+      // Sort entries for consistent order
+      entries.sort((a, b) {
+        if (a.isFile == b.isFile) {
+          return a.name.compareTo(b.name);
         }
+        return a.isFile ? 1 : -1; // Directories come first
+      });
 
-        // Calculate total size
-        int totalBytes = 0;
-        for (var i = 0; i < fileList.ref.count; i++) {
-          totalBytes += fileList.ref.files[i].size;
-        }
-        int processedBytes = 0;
-
-        // Process each file
-        for (var i = 0; i < fileList.ref.count; i++) {
-          final fileInfo = fileList.ref.files[i];
-          final filePath = fileInfo.path.toDartString();
-          
-          entries.add(ZArchiveEntry(
-            name: filePath,
-            isFile: true,
-            size: fileInfo.size,
-            offset: fileInfo.offset,
-          ));
-
-          final fullOutputPath = path.join(outputPath, filePath);
-          
-          // Create parent directories
-          final parent = path.dirname(fullOutputPath);
-          if (parent != '.') {
-            Directory(parent).createSync(recursive: true);
-          }
-
-          // Extract the file
-          final pathPtr = filePath.toNativeUtf8();
-          final outputPathPtr = fullOutputPath.toNativeUtf8();
-          final extractResult = _bindings.extractFile(reader, pathPtr, outputPathPtr);
-          calloc.free(pathPtr);
-          calloc.free(outputPathPtr);
-          
-          if (extractResult == 0) {
-            throw Exception('Failed to extract file: $filePath');
-          }
-
-          processedBytes += fileInfo.size;
-          onProgress(processedBytes, totalBytes);
-        }
-      } finally {
-        _bindings.freeFileList(fileList);
-      }
     } finally {
       if (reader != null) {
         _bindings.destroyReader(reader);
@@ -192,7 +149,124 @@ class ZArchiveService {
     return entries;
   }
 
-  // Static callback functions for FFI
+  Future<void> _extractDirectory(
+    Pointer<Void> reader,
+    String sourcePath,
+    String outputPath,
+    List<ZArchiveEntry> entries,
+    ProgressCallback onProgress,
+  ) async {
+    final fileList = _bindings.listFiles(reader);
+    if (fileList == nullptr) {
+      throw Exception('Failed to list files');
+    }
+
+    try {
+      print('Total files in archive: ${fileList.ref.count}');
+      
+      int totalBytes = 0;
+      int processedBytes = 0;
+
+      // First pass: print all files and calculate total size
+      print('\nFiles in archive:');
+      for (var i = 0; i < fileList.ref.count; i++) {
+        final fileInfo = fileList.ref.files[i];
+        final filePath = fileInfo.path.toDartString();
+        print('File $i: $filePath (size: ${fileInfo.size})');
+        totalBytes += fileInfo.size.toInt();
+      }
+      print('Total bytes to process: $totalBytes\n');
+
+      // Second pass: extract files
+      for (var i = 0; i < fileList.ref.count; i++) {
+        final fileInfo = fileList.ref.files[i];
+        final filePath = fileInfo.path.toDartString();
+        print('Processing file $i: $filePath');
+
+        // Add entry for the file
+        entries.add(ZArchiveEntry(
+          name: filePath,
+          isFile: true,
+          size: fileInfo.size.toInt(),
+          offset: fileInfo.offset.toInt(),
+        ));
+
+        // Create all parent directories
+        final fullOutputPath = path.join(outputPath, filePath);
+        final parent = path.dirname(fullOutputPath);
+        print('Creating parent directory: $parent');
+        
+        if (parent != '.') {
+          Directory(parent).createSync(recursive: true);
+          
+          // Add entries for parent directories if they don't exist
+          var currentPath = parent;
+          while (currentPath != outputPath && currentPath != '.') {
+            final relativePath = path.relative(currentPath, from: outputPath);
+            print('Adding directory entry: $relativePath');
+            
+            final dirEntry = ZArchiveEntry(
+              name: relativePath,
+              isFile: false,
+              size: 0,
+              offset: 0,
+            );
+            
+            if (!entries.any((e) => e.name == dirEntry.name && !e.isFile)) {
+              entries.add(dirEntry);
+            }
+            currentPath = path.dirname(currentPath);
+          }
+        }
+
+        // Extract the file
+        final pathPtr = filePath.toNativeUtf8();
+        final outputPathPtr = fullOutputPath.toNativeUtf8();
+        
+        try {
+          print('Attempting to extract: $filePath to $fullOutputPath');
+          final extractResult = _bindings.extractFile(reader, pathPtr, outputPathPtr);
+          if (extractResult == 0) {
+            print('Failed to extract file: $filePath');
+            throw Exception('Failed to extract file: $filePath');
+          }
+          print('Successfully extracted: $filePath');
+          
+          processedBytes += fileInfo.size.toInt();
+          onProgress(processedBytes, totalBytes);
+        } finally {
+          calloc.free(pathPtr);
+          calloc.free(outputPathPtr);
+        }
+      }
+
+      print('\nFinal entries list:');
+      for (var entry in entries) {
+        print('Entry: ${entry.name} (isFile: ${entry.isFile}, size: ${entry.size})');
+      }
+
+    } finally {
+      _bindings.freeFileList(fileList);
+    }
+  }
+
+  bool _isInDirectory(String dirPath, String filePath) {
+    if (dirPath.isEmpty) return true;
+    final normalizedDirPath = path.normalize(dirPath);
+    final normalizedFilePath = path.normalize(path.dirname(filePath));
+    return normalizedFilePath.startsWith(normalizedDirPath);
+  }
+
+  Future<List<FileSystemEntity>> _collectFiles(Directory dir) async {
+    final files = <FileSystemEntity>[];
+    await for (var entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        files.add(entity);
+      }
+    }
+    return files;
+  }
+
   static void _onNewFile(int partIndex, Pointer<Void> ctx) {
     // No-op for now, we don't support multi-part archives
   }
@@ -204,10 +278,7 @@ class ZArchiveService {
 
   static void _onReadData(Pointer<Void> data, int offset, int length, Pointer<Void> ctx) {
     try {
-      // Handle negative offsets (reading from end of file)
       final actualOffset = offset < 0 ? _currentInputFileLength + offset : offset;
-      
-      // Seek to the correct position
       _currentInputFile.setPositionSync(actualOffset);
       final buffer = data.cast<Uint8>().asTypedList(length);
       final bytesRead = _currentInputFile.readIntoSync(buffer);
@@ -216,20 +287,9 @@ class ZArchiveService {
         throw Exception('Failed to read expected number of bytes');
       }
     } catch (e, stackTrace) {
-      print('Error in read callback: $e');
-      print('Stack trace: $stackTrace');
+      print('Error in read callback: $e\nStack trace: $stackTrace');
       rethrow;
     }
-  }
-
-  Future<List<FileSystemEntity>> _collectFiles(Directory dir) async {
-    final files = <FileSystemEntity>[];
-    await for (var entity in dir.list(recursive: true, followLinks: false)) {
-      if (entity is File) {
-        files.add(entity);
-      }
-    }
-    return files;
   }
 
   void dispose() {

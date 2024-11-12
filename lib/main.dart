@@ -15,7 +15,7 @@ import 'screens/logs_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/igdb_search_screen.dart';
 import 'screens/xbox_iso_extractor_screen.dart';
-import 'zarchive/screens/zarchive_screen.dart';
+import 'screens/zarchive_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -217,12 +217,12 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
                   label: Text('Logs'),
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.extension),
+                  icon: Icon(Icons.iso),
                   label: Text('ISO Extractor'),
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.archive),
-                  label: Text('ZArchiver'),
+                  icon: Icon(Icons.folder_zip),
+                  label: Text('Game Files'),
                 ),
               ],
               trailing: Container(
