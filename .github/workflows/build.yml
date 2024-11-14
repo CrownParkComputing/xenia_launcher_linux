@@ -45,6 +45,11 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
 
+    - name: Copy native libraries
+      run: |
+        mkdir -p build/linux/x64/release/bundle/lib/native/linux/
+        cp lib/native/linux/libzarchive.so build/linux/x64/release/bundle/lib/native/linux/
+
     - name: Build Linux Release
       run: flutter build linux --release
 
