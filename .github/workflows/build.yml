@@ -139,7 +139,7 @@ jobs:
         chmod +x deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64/usr/bin/xenia-launcher
         
         # Create desktop entry
-        cp AppDir/xenia-launcher.desktop deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64/usr/share/applications/
+        cp assets/xenia-launcher.desktop deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64/usr/share/applications/
         
         # Create control file
         cat > deb_build/xenia-launcher_${{ steps.info.outputs.version }}-1_amd64/DEBIAN/control << EOF
@@ -163,6 +163,10 @@ jobs:
 
     - name: Prepare AppDir
       run: |
+        mkdir -p AppDir/usr/bin
+        mkdir -p AppDir/usr/share/applications
+        cp assets/xenia-launcher.desktop AppDir/xenia-launcher.desktop
+        cp assets/xenia-launcher.desktop AppDir/usr/share/applications/
         chmod +x appimagetool
         cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
         chmod +x AppDir/AppRun

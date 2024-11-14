@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Xenia Launcher
+Comment=A launcher for Xenia Xbox 360 emulator
+Exec=xenia-launcher
+Icon=xenia-launcher
+Categories=Game;Emulator;
+Terminal=false
