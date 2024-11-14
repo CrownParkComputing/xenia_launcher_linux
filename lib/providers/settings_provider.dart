@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path/path.dart' as path;
+import 'package:path/path.dart' as path_util;
 import '../screens/logs_screen.dart';
 import '../services/xenia_update_service.dart';
 import '../models/config.dart';
@@ -22,8 +22,29 @@ class SettingsProvider extends BaseProvider {
   SettingsProvider(SharedPreferences prefs) : super(prefs);
 
   // Archive getters and setters
-  String? get defaultCreatePath => prefs.getString(_defaultCreatePathKey);
-  String? get defaultExtractPath => prefs.getString(_defaultExtractPathKey);
+  String get defaultCreatePath {
+    final savedPath = prefs.getString(_defaultCreatePathKey);
+    if (savedPath != null && savedPath.isNotEmpty && savedPath != '/') {
+      return savedPath;
+    }
+    return path_util.join(
+      Platform.environment['HOME'] ?? '/home/${Platform.environment['USER']}',
+      'Xenia',
+      'Archives'
+    );
+  }
+
+  String get defaultExtractPath {
+    final savedPath = prefs.getString(_defaultExtractPathKey);
+    if (savedPath != null && savedPath.isNotEmpty && savedPath != '/') {
+      return savedPath;
+    }
+    return path_util.join(
+      Platform.environment['HOME'] ?? '/home/${Platform.environment['USER']}',
+      'Xenia',
+      'Extractions'
+    );
+  }
 
   Future<void> setDefaultCreatePath(String path) async {
     await prefs.setString(_defaultCreatePathKey, path);
@@ -47,11 +68,25 @@ class SettingsProvider extends BaseProvider {
   }
 
   Future<void> setBaseFolder(String path) async {
+    if (path.isEmpty || path == '/') {
+      return;
+    }
     config.baseFolder = path;
     await saveConfig();
   }
 
+  Future<void> setIsoFolder(String path) async {
+    if (path.isEmpty || path == '/') {
+      return;
+    }
+    config.isoFolder = path;
+    await saveConfig();
+  }
+
   Future<void> setWinePrefix(String path) async {
+    if (path.isEmpty || path == '/') {
+      return;
+    }
     config.winePrefix = path;
     await saveConfig();
   }
@@ -185,8 +220,8 @@ class SettingsProvider extends BaseProvider {
           runInShell: true);
 
       // Get the directory containing the executable
-      final execDir = path.dirname(executable);
-      final logPath = path.join(execDir, 'xenia.log');
+      final execDir = path_util.dirname(executable);
+      final logPath = path_util.join(execDir, 'xenia.log');
 
       // Wait a moment for the log file to be written
       await Future.delayed(const Duration(seconds: 1));

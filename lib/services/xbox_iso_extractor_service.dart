@@ -1,43 +1,45 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'xiso_service.dart';
 
 class XboxIsoExtractorService {
-  static Future<void> launchIsoExtractor() async {
+  static final _xisoService = XisoService();
+
+  static Future<bool> extractIso(String source, String target, {
+    bool excludeSysUpdate = true,
+    Function(String)? onOperation,
+    Function(String)? onStatus,
+    Function(double)? onProgress,
+  }) async {
     try {
-      final extractorPath = path.join(Directory.current.path, 'xbox_iso_extractor');
-      final buildPath = path.join(extractorPath, 'build', 'linux', 'x64', 'release', 'bundle');
-      final executablePath = path.join(buildPath, 'xbox_iso_extractor');
-      
-      // Check if the executable exists
-      if (!File(executablePath).existsSync()) {
-        print('Building Xbox ISO Extractor...');
-        // Build the app first
-        final buildResult = await Process.run(
-          'flutter',
-          ['build', 'linux', '--release'],
-          workingDirectory: extractorPath,
-        );
-        
-        if (buildResult.exitCode != 0) {
-          print('Error building Xbox ISO Extractor: ${buildResult.stderr}');
-          return;
-        }
-      }
+      _xisoService.onOperation = onOperation;
+      _xisoService.onStatus = onStatus;
+      _xisoService.onIsoProgress = onProgress;
 
-      // Launch the executable
-      if (File(executablePath).existsSync()) {
-        await Process.start(
-          executablePath,
-          [],
-          workingDirectory: buildPath,
-          mode: ProcessStartMode.detached,
-        );
-      } else {
-        print('Error: Executable not found at $executablePath');
-      }
-
+      return await _xisoService.extractXiso(source, target, excludeSysUpdate: excludeSysUpdate);
     } catch (e) {
-      print('Failed to launch Xbox ISO Extractor: $e');
+      onStatus?.call('Error extracting ISO: $e');
+      return false;
     }
+  }
+
+  static Future<XisoListAndSize> getFileList(String source, {
+    bool excludeSysUpdate = true,
+    Function(String)? onOperation,
+    Function(String)? onStatus,
+  }) async {
+    try {
+      _xisoService.onOperation = onOperation;
+      _xisoService.onStatus = onStatus;
+
+      return await _xisoService.getFileListAndSize(source, excludeSysUpdate: excludeSysUpdate);
+    } catch (e) {
+      onStatus?.call('Error getting file list: $e');
+      return XisoListAndSize();
+    }
+  }
+
+  static void abort() {
+    _xisoService.abort();
   }
 }

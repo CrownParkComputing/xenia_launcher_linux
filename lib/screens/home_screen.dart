@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
-import '../services/xbox_iso_extractor_service.dart';
 import '../zarchive/screens/zarchive_screen.dart';
 import 'settings_screen.dart';
 import 'logs_screen.dart';
+import 'xbox_iso_extractor_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  void _showSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+    );
+  }
+
+  void _showLogs(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LogsScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,8 +67,11 @@ class HomeScreen extends StatelessWidget {
               onTap: () {
                 // Close the drawer
                 Navigator.pop(context);
-                // Launch ISO Extractor
-                XboxIsoExtractorService.launchIsoExtractor();
+                // Navigate to ISO Extractor screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const XboxIsoExtractorScreen()),
+                );
               },
             ),
             ListTile(
@@ -86,20 +103,6 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  void _showSettings(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SettingsScreen()),
-    );
-  }
-
-  void _showLogs(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const LogsScreen()),
     );
   }
 }

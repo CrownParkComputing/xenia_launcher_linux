@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as path_util;
 import 'zarchive_types.dart';
 
 // Native function signatures
@@ -176,30 +177,28 @@ class ZArchiveBindings {
   }
 
   String _getLibraryPath() {
-    // Try multiple potential locations for the library
-    final possiblePaths = [
-      // Current build location
-      '${Directory.current.path}/build/linux/x64/debug/bundle/lib/libzarchive.so',
-      // Zarchive build directory
-      '${Directory.current.path}/zarchive/build/libzarchive.so',
-      // Absolute path to the current project
-      '/home/jon/Desktop/xenia_launcher/build/linux/x64/debug/bundle/lib/libzarchive.so',
-      '/home/jon/Desktop/xenia_launcher/zarchive/build/libzarchive.so',
-      // Fallback system library path
-      '/usr/local/lib/libzarchive.so',
-      '/usr/lib/libzarchive.so',
+    final executableDir = File(Platform.resolvedExecutable).parent;
+    final libName = Platform.isWindows ? 'zarchive.dll' : 'libzarchive.so';
+    final libPath = Platform.isWindows
+        ? path.join(Directory.current.path, libName)
+        : path.join(Directory.current.path, 'lib', 'native', 'linux', libName);
+    
+    // Try to find the library in various locations
+    final locations = [
+      // Current directory
+      libPath,
+      // Executable directory
+      path_util.join(executableDir.path, libName),
+      // Project root (during development)
+      path_util.join(Directory.current.path, '..', libName),
     ];
 
-    print('Searching for libzarchive.so in the following locations:');
-    for (var path in possiblePaths) {
-      print('Checking path: $path');
-      final file = File(path);
-      if (file.existsSync()) {
-        print('Found libzarchive.so at: $path');
-        return path;
+    for (final location in locations) {
+      if (File(location).existsSync()) {
+        return location;
       }
     }
 
-    throw Exception('Could not find libzarchive.so in any of the expected locations');
+    throw Exception('Could not find $libName. Please ensure it is in the same directory as the executable.');
   }
 }
