@@ -180,8 +180,8 @@ class ZArchiveBindings {
     final executableDir = File(Platform.resolvedExecutable).parent;
     final libName = Platform.isWindows ? 'zarchive.dll' : 'libzarchive.so';
     final libPath = Platform.isWindows
-        ? path.join(Directory.current.path, libName)
-        : path.join(Directory.current.path, 'lib', 'native', 'linux', libName);
+        ? path_util.join(Directory.current.path, libName)
+        : path_util.join(Directory.current.path, 'lib', 'native', 'linux', libName);
     
     // Try to find the library in various locations
     final locations = [
