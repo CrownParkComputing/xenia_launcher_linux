@@ -8,6 +8,7 @@ import '../services/game_search_service.dart';
 import '../providers/game_stats_provider.dart';
 import 'achievements_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GameDetailsScreen extends StatefulWidget {
   final Game game;
@@ -19,7 +20,7 @@ class GameDetailsScreen extends StatefulWidget {
 }
 
 class _GameDetailsScreenState extends State<GameDetailsScreen> {
-  final IGDBService _igdbService = IGDBService();
+  late final IGDBService _igdbService;
   late final GameSearchService _gameSearchService;
   IGDBGame? _gameDetails;
   bool _isLoading = true;
@@ -28,8 +29,13 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _gameSearchService = GameSearchService(_igdbService);
-    _loadGameDetails();
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        _igdbService = IGDBService(prefs);
+        _gameSearchService = GameSearchService(_igdbService);
+        _loadGameDetails();
+      });
+    });
   }
 
   Future<void> _loadGameDetails() async {

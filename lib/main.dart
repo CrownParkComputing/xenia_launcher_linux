@@ -18,66 +18,75 @@ import 'screens/xbox_iso_extractor_screen.dart';
 import 'screens/zarchive_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    print('Starting Xenia Launcher...');
+    WidgetsFlutterBinding.ensureInitialized();
+    print('Flutter binding initialized');
+    
+    await windowManager.ensureInitialized();
+    print('Window manager initialized');
 
-  // Initialize window manager
-  await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 720),
+      center: true,
+      title: 'Xenia Launcher',
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.hidden,
+    );
 
-  // Get the absolute path to the icon
-  final iconPath = path.join(Directory.current.path, 'AppDir', 'usr', 'share', 'icons', 'hicolor', '256x256', 'apps', 'xenia-launcher.svg');
+    print('Setting up window options');
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      print('Window ready to show');
+      await windowManager.setIcon('assets/icon.png');
+      await windowManager.show();
+      await windowManager.focus();
+    });
 
-  // Configure window options
-  await windowManager.waitUntilReadyToShow(const WindowOptions(
-    size: Size(1280, 720),
-    center: true,
-    title: 'Xenia Launcher',
-    backgroundColor: Colors.transparent,
-    skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden,
-  ), () async {
-    await windowManager.setIcon(iconPath);
-    await windowManager.show();
-    await windowManager.focus();
-  });
+    print('Initializing SharedPreferences');
+    final prefs = await SharedPreferences.getInstance();
+    print('SharedPreferences initialized');
 
-  final prefs = await SharedPreferences.getInstance();
-
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (_) => SettingsProvider(prefs),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => FolderProvider(prefs),
-        ),
-        ChangeNotifierProxyProvider<SettingsProvider, IsoGamesProvider>(
-          create: (context) => IsoGamesProvider(
-            prefs,
-            Provider.of<SettingsProvider>(context, listen: false),
+    print('Starting app with providers');
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(
+            create: (_) => SettingsProvider(prefs),
           ),
-          update: (context, settings, previous) =>
-              previous ?? IsoGamesProvider(prefs, settings),
-        ),
-        ChangeNotifierProxyProvider<SettingsProvider, LiveGamesProvider>(
-          create: (context) => LiveGamesProvider(
-            prefs,
-            Provider.of<SettingsProvider>(context, listen: false),
+          ChangeNotifierProvider(
+            create: (_) => FolderProvider(prefs),
           ),
-          update: (context, settings, previous) =>
-              previous ?? LiveGamesProvider(prefs, settings),
-        ),
-        ChangeNotifierProvider(
-          create: (context) {
-            final provider = GameStatsProvider(prefs);
-            GameTrackingService().setStatsProvider(provider);
-            return provider;
-          },
-        ),
-      ],
-      child: const XeniaLauncher(),
-    ),
-  );
+          ChangeNotifierProxyProvider<SettingsProvider, IsoGamesProvider>(
+            create: (context) => IsoGamesProvider(
+              prefs,
+              Provider.of<SettingsProvider>(context, listen: false),
+            ),
+            update: (context, settings, previous) =>
+                previous ?? IsoGamesProvider(prefs, settings),
+          ),
+          ChangeNotifierProxyProvider<SettingsProvider, LiveGamesProvider>(
+            create: (context) => LiveGamesProvider(
+              prefs,
+              Provider.of<SettingsProvider>(context, listen: false),
+            ),
+            update: (context, settings, previous) =>
+                previous ?? LiveGamesProvider(prefs, settings),
+          ),
+          ChangeNotifierProvider(
+            create: (context) {
+              final provider = GameStatsProvider(prefs);
+              GameTrackingService().setStatsProvider(provider);
+              return provider;
+            },
+          ),
+        ],
+        child: const XeniaLauncher(),
+      ),
+    );
+  } catch (e) {
+    print('Error starting Xenia Launcher: $e');
+  }
 }
 
 class XeniaLauncher extends StatelessWidget {
@@ -85,6 +94,7 @@ class XeniaLauncher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('Building XeniaLauncher widget');
     return MaterialApp(
       title: 'Xenia Launcher',
       theme: ThemeData.dark(useMaterial3: true),
@@ -115,9 +125,23 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
 
   @override
   void initState() {
+    print('Initializing MainScreen');
     super.initState();
     windowManager.addListener(this);
     _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      print('Running MainScreen init');
+      await Future.wait([
+        windowManager.setPreventClose(false),
+        windowManager.setMinimumSize(const Size(800, 600)),
+      ]);
+      print('MainScreen init complete');
+    } catch (e) {
+      print('Error in MainScreen init: $e');
+    }
   }
 
   @override
@@ -126,7 +150,7 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
     super.dispose();
   }
 
-  void _init() async {
+  void _initOld() async {
     await windowManager.setPreventClose(true);
     setState(() {});
   }

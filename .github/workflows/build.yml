@@ -1,10 +1,9 @@
-name: Build and Package
+name: Build and Release
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -14,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v2
       with:
         fetch-depth: 0
 
@@ -168,6 +168,9 @@ jobs:
         cp assets/xenia-launcher.desktop AppDir/xenia-launcher.desktop
         cp assets/xenia-launcher.desktop AppDir/usr/share/applications/
         chmod +x appimagetool
+
+    - name: Copy application files to AppDir
+      run: |
         cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
         chmod +x AppDir/AppRun
 

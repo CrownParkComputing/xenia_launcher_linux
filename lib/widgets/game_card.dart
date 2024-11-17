@@ -14,6 +14,7 @@ import '../widgets/dialogs/igdb_search_dialog.dart';
 import 'game_card/game_cover.dart';
 import 'game_card/game_title_section.dart';
 import 'game_card/game_actions_section.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GameCard extends StatefulWidget {
   final Game game;
@@ -48,9 +49,11 @@ class _GameCardState extends State<GameCard> {
   @override
   void initState() {
     super.initState();
-    _igdbService = IGDBService();
-    _gameSearchService = GameSearchService(_igdbService);
-    _loadGameDetails();
+    SharedPreferences.getInstance().then((prefs) {
+      _igdbService = IGDBService(prefs);
+      _gameSearchService = GameSearchService(_igdbService);
+      _loadGameDetails();
+    });
   }
 
   @override

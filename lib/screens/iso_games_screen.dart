@@ -127,18 +127,22 @@ class IsoGamesScreen extends StatelessWidget {
   Future<void> _launchGame(BuildContext context, Game game) async {
     final settingsProvider =
         Provider.of<SettingsProvider>(context, listen: false);
-    final isoProvider = Provider.of<IsoGamesProvider>(context, listen: false);
 
-    if (settingsProvider.config.xeniaExecutables.isEmpty) {
+    // Use the specific Xenia paths
+    String? executable = game.lastUsedExecutable;
+    if (executable == null) {
+      executable = settingsProvider.config.xeniaCanaryPath ?? 
+                  settingsProvider.config.xeniaNetplayPath ?? 
+                  settingsProvider.config.xeniaStablePath;
+    }
+
+    if (executable == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No Xenia executables found')),
       );
       return;
     }
 
-    // If there's a last used executable, use it directly
-    final executable = game.lastUsedExecutable ??
-        settingsProvider.config.xeniaExecutables.first;
     await _runGame(context, game, executable);
   }
 

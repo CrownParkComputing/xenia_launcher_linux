@@ -12,6 +12,9 @@ class Config {
   List<String> xeniaExecutables;
   Map<String, String> xeniaVersions; // Map executable path to its version
   GameCardSize cardSize;
+  String? xeniaCanaryPath;
+  String? xeniaNetplayPath;
+  String? xeniaStablePath;
 
   Config({
     this.baseFolder,
@@ -21,6 +24,9 @@ class Config {
     this.xeniaExecutables = const [],
     this.xeniaVersions = const {},
     this.cardSize = GameCardSize.medium,
+    this.xeniaCanaryPath,
+    this.xeniaNetplayPath,
+    this.xeniaStablePath,
   });
 
   Map<String, dynamic> toJson() => {
@@ -31,6 +37,9 @@ class Config {
         'xeniaExecutables': xeniaExecutables,
         'xeniaVersions': xeniaVersions,
         'cardSize': cardSize.index,
+        'xeniaCanaryPath': xeniaCanaryPath,
+        'xeniaNetplayPath': xeniaNetplayPath,
+        'xeniaStablePath': xeniaStablePath,
       };
 
   factory Config.fromJson(Map<String, dynamic> json) => Config(
@@ -46,5 +55,8 @@ class Config {
                 ?.map((k, v) => MapEntry(k, v as String)) ??
             {},
         cardSize: GameCardSize.values[json['cardSize'] as int? ?? 1],
+        xeniaCanaryPath: json['xeniaCanaryPath'] as String?,
+        xeniaNetplayPath: json['xeniaNetplayPath'] as String?,
+        xeniaStablePath: json['xeniaStablePath'] as String?,
       );
 }

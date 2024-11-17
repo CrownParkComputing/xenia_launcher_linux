@@ -1,15 +1,45 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/logs_screen.dart' show log;
 import 'package:http/http.dart' as http;
 import '../models/igdb_game.dart';
 import '../models/game.dart';
 
 class IGDBService {
-  static const String _baseUrl = 'https://api.igdb.com/v4';
+  final String _baseUrl = 'https://api.igdb.com/v4';
   static const String _clientId = 'iwv8b7b2j538q7q956u8kpclmkwo3x';
   static const String _clientSecret = 'biypz8t9eyy4kj9cakkpqzyzj02yct';
   String? _accessToken;
   final Map<String, IGDBGame> _cache = {};
+  static const String _cacheKey = 'igdb_cache';
+  final SharedPreferences _prefs;
+
+  IGDBService(this._prefs) {
+    _loadCache();
+  }
+
+  void _loadCache() {
+    final cacheData = _prefs.getString(_cacheKey);
+    if (cacheData != null) {
+      final Map<String, dynamic> cacheMap = json.decode(cacheData);
+      cacheMap.forEach((key, value) {
+        _cache[key] = IGDBGame.fromJson(value);
+      });
+    }
+  }
+
+  Future<void> _saveCache() async {
+    final cacheMap = Map<String, dynamic>.fromEntries(
+      _cache.entries.map((e) => MapEntry(e.key, e.value.toJson())),
+    );
+    await _prefs.setString(_cacheKey, json.encode(cacheMap));
+  }
+
+  Future<void> initialize(String clientId, String clientSecret) async {
+    // Removed initialization of _clientId and _clientSecret as they are now constants
+  }
 
   Future<String> _getAccessToken() async {
     if (_accessToken != null) return _accessToken!;
@@ -48,6 +78,11 @@ class IGDBService {
   }
 
   Future<IGDBGame?> getGameById(int id) async {
+    final cacheKey = 'id_$id';
+    if (_cache.containsKey(cacheKey)) {
+      return _cache[cacheKey];
+    }
+
     try {
       log('Getting game details for ID: $id');
       final token = await _getAccessToken();
@@ -83,8 +118,12 @@ class IGDBService {
       }
 
       final List<dynamic> games = json.decode(detailsResponse.body);
-      return games.isNotEmpty ? IGDBGame.fromJson(games.first) : null;
-
+      final game = games.isNotEmpty ? IGDBGame.fromJson(games.first) : null;
+      if (game != null) {
+        _cache[cacheKey] = game;
+        await _saveCache();
+      }
+      return game;
     } catch (e) {
       log('Error in getGameById: $e');
       return null;
@@ -92,12 +131,27 @@ class IGDBService {
   }
 
   Future<IGDBGame?> getGameDetails(String gameName) async {
+    // Check cache first
+    if (_cache.containsKey(gameName)) {
+      return _cache[gameName];
+    }
+
     final results = await searchGames(gameName);
-    return results.isNotEmpty ? results.first : null;
+    if (results.isNotEmpty) {
+      _cache[gameName] = results.first;
+      await _saveCache();
+      return results.first;
+    }
+    return null;
   }
 
   Future<List<IGDBGame>> searchGames(String gameName) async {
     try {
+      // Check cache first
+      if (_cache.containsKey(gameName)) {
+        return [_cache[gameName]!];
+      }
+
       // Clean the game name using the Game model's cleanGameTitle method
       final cleanedGameName = Game.cleanGameTitle(gameName);
       log('Starting game search for: $cleanedGameName (original: $gameName)');
@@ -196,6 +250,7 @@ class IGDBService {
 
       if (results.isNotEmpty) {
         _cache[gameName] = results.first;
+        await _saveCache();
         log('Successfully found ${results.length} games');
       } else {
         log('No matches found');
@@ -205,6 +260,48 @@ class IGDBService {
     } catch (e) {
       log('Error in searchGames: $e');
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchGameData(String gameName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'igdb_$gameName';
+    final cachedData = prefs.getString(cacheKey);
+
+    if (cachedData != null) {
+      return jsonDecode(cachedData);
+    }
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/games'),
+      headers: {
+        'Client-ID': _clientId,
+        'Authorization': 'Bearer $_accessToken',
+      },
+      body: 'fields name,cover.url; search "$gameName";',
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      await prefs.setString(cacheKey, response.body);
+      return data;
+    } else {
+      throw Exception('Failed to fetch game data');
+    }
+  }
+
+  Future<void> downloadCover(String url, String gameName) async {
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      final directory = Directory('covers');
+      if (!directory.existsSync()) {
+        directory.createSync();
+      }
+      final filePath = path.join(directory.path, '$gameName.jpg');
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+    } else {
+      throw Exception('Failed to download cover');
     }
   }
 }

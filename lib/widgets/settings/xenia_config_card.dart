@@ -6,11 +6,8 @@ import '../../providers/iso_games_provider.dart';
 import '../../providers/live_games_provider.dart';
 
 class XeniaConfigCard extends StatelessWidget {
-  final void Function(String) onBaseFolderSelected;
-
   const XeniaConfigCard({
     super.key,
-    required this.onBaseFolderSelected,
   });
 
   @override
@@ -30,14 +27,6 @@ class XeniaConfigCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            ListTile(
-              title: const Text('Base Folder'),
-              subtitle: Text(settingsProvider.config.baseFolder ?? 'Not set'),
-              trailing: IconButton(
-                icon: const Icon(Icons.folder),
-                onPressed: () => _selectBaseFolder(context),
-              ),
-            ),
             ListTile(
               title: const Text('Wine Prefix'),
               subtitle: Text(settingsProvider.config.winePrefix ?? 'Not set'),
@@ -62,24 +51,34 @@ class XeniaConfigCard extends StatelessWidget {
                 onPressed: () => _selectLiveGamesFolder(context),
               ),
             ),
+            ListTile(
+              title: const Text('Xenia Canary Executable'),
+              subtitle: Text(settingsProvider.config.xeniaCanaryPath ?? 'Not set'),
+              trailing: IconButton(
+                icon: const Icon(Icons.folder),
+                onPressed: () => _selectXeniaCanaryPath(context),
+              ),
+            ),
+            ListTile(
+              title: const Text('Xenia Netplay Executable'),
+              subtitle: Text(settingsProvider.config.xeniaNetplayPath ?? 'Not set'),
+              trailing: IconButton(
+                icon: const Icon(Icons.folder),
+                onPressed: () => _selectXeniaNetplayPath(context),
+              ),
+            ),
+            ListTile(
+              title: const Text('Xenia Stable Executable'),
+              subtitle: Text(settingsProvider.config.xeniaStablePath ?? 'Not set'),
+              trailing: IconButton(
+                icon: const Icon(Icons.folder),
+                onPressed: () => _selectXeniaStablePath(context),
+              ),
+            ),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _selectBaseFolder(BuildContext context) async {
-    final settingsProvider =
-        Provider.of<SettingsProvider>(context, listen: false);
-
-    final result = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Select Xenia Base Folder',
-    );
-
-    if (result != null) {
-      await settingsProvider.setBaseFolder(result);
-      onBaseFolderSelected(result);
-    }
   }
 
   Future<void> _selectWinePrefix(BuildContext context) async {
@@ -116,6 +115,48 @@ class XeniaConfigCard extends StatelessWidget {
 
     if (result != null) {
       await liveProvider.setLiveGamesFolder(result);
+    }
+  }
+
+  Future<void> _selectXeniaCanaryPath(BuildContext context) async {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select Xenia Canary Executable',
+      type: FileType.custom,
+      allowedExtensions: ['exe'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      await settingsProvider.setXeniaCanaryPath(result.files.single.path!);
+    }
+  }
+
+  Future<void> _selectXeniaNetplayPath(BuildContext context) async {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select Xenia Netplay Executable',
+      type: FileType.custom,
+      allowedExtensions: ['exe'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      await settingsProvider.setXeniaNetplayPath(result.files.single.path!);
+    }
+  }
+
+  Future<void> _selectXeniaStablePath(BuildContext context) async {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select Xenia Stable Executable',
+      type: FileType.custom,
+      allowedExtensions: ['exe'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      await settingsProvider.setXeniaStablePath(result.files.single.path!);
     }
   }
 }

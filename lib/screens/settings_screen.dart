@@ -5,7 +5,6 @@ import '../providers/settings_provider.dart';
 import '../widgets/settings/version_check_card.dart';
 import '../widgets/settings/card_size_settings.dart';
 import '../widgets/settings/xenia_config_card.dart';
-import '../widgets/settings/xenia_variants_card.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -25,11 +24,7 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             const CardSizeSettings(),
             const SizedBox(height: 16),
-            XeniaConfigCard(
-              onBaseFolderSelected: _scanForExecutables,
-            ),
-            const SizedBox(height: 16),
-            const XeniaVariantsCard(),
+            const XeniaConfigCard(),
             const SizedBox(height: 16),
             Card(
               child: Padding(

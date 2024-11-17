@@ -3,6 +3,7 @@ import '../../models/igdb_game.dart';
 import '../../services/igdb_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class IgdbSearchDialog extends StatefulWidget {
   final String currentTitle;
@@ -17,16 +18,21 @@ class IgdbSearchDialog extends StatefulWidget {
 }
 
 class _IgdbSearchDialogState extends State<IgdbSearchDialog> {
-  final _searchController = TextEditingController();
-  final _igdbService = IGDBService();
+  late final TextEditingController _searchController;
+  late final IGDBService _igdbService;
   List<IGDBGame> _results = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _searchController.text = widget.currentTitle;
-    _search();
+    _searchController = TextEditingController(text: widget.currentTitle);
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        _igdbService = IGDBService(prefs);
+        _search();
+      });
+    });
   }
 
   @override

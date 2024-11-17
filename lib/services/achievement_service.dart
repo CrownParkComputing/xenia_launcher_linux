@@ -3,6 +3,7 @@ import '../models/game.dart';
 import '../models/achievement.dart';
 import '../providers/settings_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AchievementService {
   static final AchievementService _instance = AchievementService._internal();
@@ -16,12 +17,15 @@ class AchievementService {
     print('Game path: ${game.path}');
 
     // Get the executable from settings
-    if (settingsProvider.config.xeniaExecutables.isEmpty) {
+    final executable = settingsProvider.config.xeniaCanaryPath ?? 
+                      settingsProvider.config.xeniaNetplayPath ?? 
+                      settingsProvider.config.xeniaStablePath;
+                      
+    if (executable == null) {
       print('No Xenia executables configured');
       return [];
     }
 
-    final executable = settingsProvider.config.xeniaExecutables.first;
     final xeniaDir = path.dirname(executable);
     final logPath = path.join(xeniaDir, 'xenia.log');
 
@@ -211,5 +215,17 @@ class AchievementService {
 
     print('Finished parsing. Found ${achievements.length} achievements');
     return achievements;
+  }
+
+  Future<void> saveAchievements(String gameName, List<String> achievements) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'achievements_$gameName';
+    await prefs.setStringList(cacheKey, achievements);
+  }
+
+  Future<List<String>?> loadAchievements(String gameName) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'achievements_$gameName';
+    return prefs.getStringList(cacheKey);
   }
 }

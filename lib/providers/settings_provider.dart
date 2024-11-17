@@ -93,6 +93,41 @@ class SettingsProvider extends BaseProvider {
 
   Future<void> setXeniaExecutables(List<String> paths) async {
     config.xeniaExecutables = paths;
+    // Update the specific paths as well
+    for (final path in paths) {
+      final fileName = path.split(Platform.pathSeparator).last.toLowerCase();
+      if (fileName.contains('canary') && !fileName.contains('netplay')) {
+        await setXeniaCanaryPath(path);
+      } else if (fileName.contains('netplay')) {
+        await setXeniaNetplayPath(path);
+      } else {
+        await setXeniaStablePath(path);
+      }
+    }
+    await saveConfig();
+  }
+
+  Future<void> setXeniaCanaryPath(String path) async {
+    config.xeniaCanaryPath = path;
+    if (!config.xeniaExecutables.contains(path)) {
+      config.xeniaExecutables.add(path);
+    }
+    await saveConfig();
+  }
+
+  Future<void> setXeniaNetplayPath(String path) async {
+    config.xeniaNetplayPath = path;
+    if (!config.xeniaExecutables.contains(path)) {
+      config.xeniaExecutables.add(path);
+    }
+    await saveConfig();
+  }
+
+  Future<void> setXeniaStablePath(String path) async {
+    config.xeniaStablePath = path;
+    if (!config.xeniaExecutables.contains(path)) {
+      config.xeniaExecutables.add(path);
+    }
     await saveConfig();
   }
 
