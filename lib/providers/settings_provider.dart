@@ -16,56 +16,53 @@ class SettingsProvider extends BaseProvider {
   String? _latestVersion;
   bool _isCheckingUpdate = false;
   String _updateStatus = '';
+  final List<String> _logs = [];
   
-  // Archive settings
+  // Archive settings keys
   static const String _defaultCreatePathKey = 'default_create_path';
   static const String _defaultExtractPathKey = 'default_extract_path';
-
-  SettingsProvider(SharedPreferences prefs) : super(prefs);
-
-  // Archive getters and setters
-  String get defaultCreatePath {
-    final savedPath = prefs.getString(_defaultCreatePathKey);
-    if (savedPath != null && savedPath.isNotEmpty && savedPath != '/') {
-      return savedPath;
-    }
-    return path_util.join(
-      Platform.environment['HOME'] ?? '/home/${Platform.environment['USER']}',
-      'Xenia',
-      'Archives'
-    );
+  
+  SettingsProvider(SharedPreferences prefs) : super(prefs) {
+    _xeniaUpdateService.addLogListener(_handleServiceLog);
   }
 
-  String get defaultExtractPath {
-    final savedPath = prefs.getString(_defaultExtractPathKey);
-    if (savedPath != null && savedPath.isNotEmpty && savedPath != '/') {
-      return savedPath;
-    }
-    return path_util.join(
-      Platform.environment['HOME'] ?? '/home/${Platform.environment['USER']}',
-      'Xenia',
-      'Extractions'
-    );
+  void _handleServiceLog(String message) {
+    log(message);
   }
 
-  Future<void> setDefaultCreatePath(String path) async {
-    await prefs.setString(_defaultCreatePathKey, path);
-    notifyListeners();
+  @override
+  void dispose() {
+    _xeniaUpdateService.removeLogListener(_handleServiceLog);
+    super.dispose();
   }
 
-  Future<void> setDefaultExtractPath(String path) async {
-    await prefs.setString(_defaultExtractPathKey, path);
-    notifyListeners();
-  }
-
-  // Existing getters
+  // Getters
+  String? get xeniaCanaryPath => config.xeniaCanaryPath;
   String? get latestVersion => _latestVersion;
   bool get isCheckingUpdate => _isCheckingUpdate;
   String get updateStatus => _updateStatus;
+  List<String> get logs => List.unmodifiable(_logs);
+
+  // Archive paths
+  String? get defaultCreatePath => prefs.getString(_defaultCreatePathKey);
+  String? get defaultExtractPath => prefs.getString(_defaultExtractPathKey);
+
+  void log(String message) {
+    final timestamp = DateTime.now().toIso8601String();
+    final logMessage = '[$timestamp] $message';
+    debugPrint('[Xenia Launcher] $logMessage');
+    _logs.add(logMessage);
+    _updateStatus = message;
+    notifyListeners();
+  }
 
   void _setUpdateStatus(String status) {
     _updateStatus = status;
-    log(status);
+    notifyListeners();
+  }
+
+  void clearLogs() {
+    _logs.clear();
     notifyListeners();
   }
 
@@ -105,9 +102,14 @@ class SettingsProvider extends BaseProvider {
     await saveConfig();
   }
 
-  Future<void> setXeniaCanaryPath(String path) async {
-    config.xeniaCanaryPath = path;
+  Future<void> setXeniaCanaryPath(String? path) async {
+    if (path != null) {
+      config.xeniaCanaryPath = path;
+    } else {
+      config.xeniaCanaryPath = null;
+    }
     await saveConfig();
+    notifyListeners();
   }
 
   Future<void> setCardSize(GameCardSize size) async {
@@ -403,5 +405,23 @@ class SettingsProvider extends BaseProvider {
     final fileName = path.split(Platform.pathSeparator).last.toLowerCase();
     if (fileName == 'xenia_canary.exe') return 'Xenia Canary';
     return fileName;
+  }
+
+  Future<void> setDefaultCreatePath(String? path) async {
+    if (path != null) {
+      await prefs.setString(_defaultCreatePathKey, path);
+    } else {
+      await prefs.remove(_defaultCreatePathKey);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setDefaultExtractPath(String? path) async {
+    if (path != null) {
+      await prefs.setString(_defaultExtractPathKey, path);
+    } else {
+      await prefs.remove(_defaultExtractPathKey);
+    }
+    notifyListeners();
   }
 }

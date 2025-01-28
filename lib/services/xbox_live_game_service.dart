@@ -106,13 +106,11 @@ class XboxLiveGameService {
       developer.log('Game object created with Xenia path: $xeniaPath');
 
       // Extract achievements if possible
-      if (settingsProvider.config.baseFolder != null && settingsProvider.config.winePrefix != null) {
+      if (settingsProvider.xeniaCanaryPath != null) {
         developer.log('Attempting to extract achievements...');
         try {
           final achievements = await _achievementService.extractAchievements(
             game,
-            settingsProvider.config.baseFolder!,
-            settingsProvider.config.winePrefix!,
             settingsProvider,
           );
 

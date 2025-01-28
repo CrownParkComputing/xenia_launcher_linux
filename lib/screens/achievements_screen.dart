@@ -15,35 +15,32 @@ class AchievementsScreen extends StatelessWidget {
   Future<void> _refreshAchievements(BuildContext context) async {
     final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     final achievementService = AchievementService();
-    final winePrefix = settingsProvider.config.winePrefix;
 
-    if (winePrefix == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Wine prefix not set')),
-      );
+    // Get the executable path
+    final xeniaPath = settingsProvider.xeniaCanaryPath;
+    if (xeniaPath == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Xenia executable not configured')),
+        );
+      }
       return;
     }
 
-    // Get the executable path
-    final xeniaPath = settingsProvider.config.xeniaCanaryPath;
-    if (xeniaPath == null) {
-      throw Exception('Xenia executable not configured');
-    }
-
     // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     try {
       final achievements = await achievementService.extractAchievements(
         game,
-        xeniaPath,
-        winePrefix,
         settingsProvider,
       );
 
@@ -114,9 +111,7 @@ class AchievementsScreen extends StatelessWidget {
                   leading: const Icon(Icons.emoji_events),
                   title: Text(achievement.title),
                   subtitle: Text(achievement.description),
-                  trailing: achievement.gamerscore != null
-                      ? Chip(label: Text('${achievement.gamerscore}G'))
-                      : null,
+                  trailing: Chip(label: Text('${achievement.gamerscore}G')),
                 );
               },
             ),

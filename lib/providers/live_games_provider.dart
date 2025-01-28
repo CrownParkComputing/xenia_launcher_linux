@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game.dart';
@@ -8,16 +9,21 @@ import '../services/dlc_service.dart';
 import '../services/achievement_service.dart';
 import '../providers/settings_provider.dart';
 import 'base_provider.dart';
+import 'package:path/path.dart' as path;
 
 class LiveGamesProvider extends BaseProvider {
   final AchievementService _achievementService = AchievementService();
   final SettingsProvider _settingsProvider;
   String _importStatus = '';
+  late final LiveGameService _liveGameService;
+  final List<Game> _liveGames = [];
 
   LiveGamesProvider(SharedPreferences prefs, this._settingsProvider)
-      : super(prefs);
+      : super(prefs) {
+    _liveGameService = LiveGameService(_settingsProvider);
+  }
 
-  List<Game> get liveGames => games.where((g) => g.isLiveGame).toList();
+  List<Game> get liveGames => List.unmodifiable(_liveGames);
   String get importStatus => _importStatus;
 
   void _updateStatus(String status) {
@@ -37,16 +43,15 @@ class LiveGamesProvider extends BaseProvider {
   }
 
   Future<void> _scanLiveGames() async {
-    if (config.liveGamesFolder == null) return;
+    if (_settingsProvider.defaultExtractPath == null) return;
 
     try {
-      final newGames =
-          await LiveGameService.scanLiveGamesDirectory(config.liveGamesFolder!);
+      final newGames = await loadGames();
 
       // Remove games that no longer exist
       final existingPaths = newGames.map((g) => g.path).toSet();
-      final gamesToRemove = games
-          .where((g) => g.isLiveGame && !existingPaths.contains(g.path))
+      final gamesToRemove = _liveGames
+          .where((g) => !existingPaths.contains(g.path))
           .toList();
 
       for (final game in gamesToRemove) {
@@ -55,19 +60,18 @@ class LiveGamesProvider extends BaseProvider {
 
       // Add new games and scan for DLC
       for (final game in newGames) {
-        if (!games.any((g) => g.path == game.path)) {
+        if (!_liveGames.any((g) => g.path == game.path)) {
           // Scan for existing DLC
           final dlcs = await DLCService.scanForDLC(game);
 
           // Extract achievements if Xenia is configured
           List<Achievement> achievements = [];
-          if (config.baseFolder != null && config.winePrefix != null) {
-            print('Extracting achievements for ${game.title}...');
-            achievements = await _achievementService.extractAchievements(game,
-                config.baseFolder!, config.winePrefix!, _settingsProvider);
+          if (_settingsProvider.xeniaCanaryPath != null) {
+            debugPrint('Extracting achievements for ${game.title}...');
+            achievements = await _achievementService.extractAchievements(
+                game, _settingsProvider);
             if (achievements.isNotEmpty) {
-              print(
-                  'Found ${achievements.length} achievements for ${game.title}');
+              debugPrint('Found ${achievements.length} achievements for ${game.title}');
             }
           }
 
@@ -81,16 +85,40 @@ class LiveGamesProvider extends BaseProvider {
     }
   }
 
+  Future<List<Game>> loadGames() async {
+    try {
+      final liveGamesFolder = _settingsProvider.defaultExtractPath;
+      if (liveGamesFolder == null) return [];
+
+      final games = <Game>[];
+
+      // Scan for RAR files in the live games folder
+      final dir = Directory(liveGamesFolder);
+      if (!await dir.exists()) return [];
+
+      await for (final entity in dir.list(recursive: false)) {
+        if (entity is File && path.extension(entity.path).toLowerCase() == '.rar') {
+          final game = await _liveGameService.importGame(entity.path);
+          if (game != null) {
+            games.add(game);
+          }
+        }
+      }
+
+      return games;
+    } catch (e) {
+      debugPrint('Error loading live games: $e');
+      return [];
+    }
+  }
+
   Future<Game?> importGame(String zipPath) async {
     if (!zipPath.toLowerCase().endsWith('.zip')) return null;
-    if (config.liveGamesFolder == null) return null;
+    if (_settingsProvider.defaultExtractPath == null) return null;
 
     try {
       _updateStatus('Extracting game files...');
-      final game = await LiveGameService.extractGame(
-        zipPath,
-        config.liveGamesFolder!,
-      );
+      final game = await _liveGameService.importGame(zipPath);
 
       if (game != null) {
         // Scan for existing DLC
@@ -99,14 +127,13 @@ class LiveGamesProvider extends BaseProvider {
 
         // Extract achievements if Xenia is configured
         List<Achievement> achievements = [];
-        if (config.baseFolder != null && config.winePrefix != null) {
+        if (_settingsProvider.xeniaCanaryPath != null) {
           _updateStatus('Extracting achievements...');
-          print('Extracting achievements for ${game.title}...');
+          debugPrint('Extracting achievements for ${game.title}...');
           achievements = await _achievementService.extractAchievements(
-              game, config.baseFolder!, config.winePrefix!, _settingsProvider);
+              game, _settingsProvider);
           if (achievements.isNotEmpty) {
-            print(
-                'Found ${achievements.length} achievements for ${game.title}');
+            debugPrint('Found ${achievements.length} achievements for ${game.title}');
           }
         }
 
@@ -187,15 +214,15 @@ class LiveGamesProvider extends BaseProvider {
 
   Future<void> rescanAchievements(Game game) async {
     if (!game.isLiveGame) return;
-    if (config.baseFolder == null || config.winePrefix == null) return;
+    if (_settingsProvider.xeniaCanaryPath == null) return;
 
     try {
-      print('Rescanning achievements for ${game.title}...');
+      debugPrint('Rescanning achievements for ${game.title}...');
       final achievements = await _achievementService.extractAchievements(
-          game, config.baseFolder!, config.winePrefix!, _settingsProvider);
+          game, _settingsProvider);
 
       if (achievements.isNotEmpty) {
-        print('Found ${achievements.length} achievements for ${game.title}');
+        debugPrint('Found ${achievements.length} achievements for ${game.title}');
         final updatedGame = game.copyWith(achievements: achievements);
         await updateGame(updatedGame);
       }
@@ -203,5 +230,43 @@ class LiveGamesProvider extends BaseProvider {
       debugPrint('Error rescanning achievements: $e');
       rethrow;
     }
+  }
+
+  Future<void> addGame(Game game) async {
+    try {
+      _liveGames.add(game);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error adding live game: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> removeGame(Game game) async {
+    try {
+      // Remove the RAR file
+      final file = File(game.path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      _liveGames.removeWhere((g) => g.id == game.id);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error removing live game: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateGame(Game game) async {
+    final index = _liveGames.indexWhere((g) => g.id == game.id);
+    if (index != -1) {
+      _liveGames[index] = game;
+      notifyListeners();
+    }
+  }
+
+  Future<void> launchGame(Game game) async {
+    await _liveGameService.launchGame(game);
   }
 }

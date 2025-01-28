@@ -93,8 +93,8 @@ class IsoGamesProvider extends BaseProvider {
 
     final extension = isIso ? '.iso' : '.zar';
     final title = gamePath.split(Platform.pathSeparator).last.replaceAll(extension, '');
-    print('Importing game: $title');
-    print('Game path: $gamePath');
+    debugPrint('Importing game: $title');
+    debugPrint('Game path: $gamePath');
 
     try {
       // Create game with original path
@@ -108,8 +108,8 @@ class IsoGamesProvider extends BaseProvider {
       await addGame(game);
 
       // Extract achievements if Xenia is configured
-      if (config.baseFolder != null && config.winePrefix != null) {
-        print('Extracting achievements during game import...');
+      if (_settingsProvider.xeniaCanaryPath != null) {
+        debugPrint('Extracting achievements during game import...');
 
         String gamePath = game.path;
         if (isZar) {
@@ -137,15 +137,13 @@ class IsoGamesProvider extends BaseProvider {
 
         final achievements = await _achievementService.extractAchievements(
             game.copyWith(path: gamePath), // Use temp path for zar files
-            config.baseFolder!,
-            config.winePrefix!,
             _settingsProvider);
 
         // Update game with achievements
         if (achievements.isNotEmpty) {
           final updatedGame = game.copyWith(achievements: achievements);
           await updateGame(updatedGame);
-          print('Game updated with ${achievements.length} achievements');
+          debugPrint('Game updated with ${achievements.length} achievements');
           return updatedGame;
         }
 
@@ -157,12 +155,12 @@ class IsoGamesProvider extends BaseProvider {
           }
         }
       } else {
-        print('Xenia not configured, skipping achievement extraction');
+        debugPrint('Xenia not configured, skipping achievement extraction');
       }
 
       return game;
     } catch (e) {
-      print('Error importing game: $e');
+      debugPrint('Error importing game: $e');
       rethrow;
     }
   }

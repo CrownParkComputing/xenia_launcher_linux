@@ -4,10 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:archive/archive.dart';
 import '../screens/logs_screen.dart' show log;
+import 'base_service.dart';
 
-class XeniaUpdateService {
+class XeniaUpdateService extends BaseService {
   static const String canaryReleaseUrl =
       'https://api.github.com/repos/xenia-canary/xenia-canary/releases/tags/experimental';
+
+  XeniaUpdateService() : super();
 
   Future<String?> getLatestCanaryVersion() async {
     try {

@@ -63,7 +63,23 @@ class _GameLibraryScreenState extends State<GameLibraryScreen> {
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: ExpansionTile(
-                    title: Text(game.title),
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(game.title),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _editGameTitle(context, game),
+                          tooltip: 'Edit title',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.play_arrow),
+                          onPressed: () => _launchGame(context, game),
+                          tooltip: 'Launch game',
+                        ),
+                      ],
+                    ),
                     subtitle: Text(game.path),
                     children: [
                       Padding(
@@ -71,12 +87,6 @@ class _GameLibraryScreenState extends State<GameLibraryScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildEditableField(
-                              label: 'Title',
-                              value: game.title,
-                              onChanged: (value) => _updateGameField(context, game, 'title', value),
-                            ),
-                            const SizedBox(height: 8),
                             Row(
                               children: [
                                 Expanded(
@@ -391,6 +401,154 @@ class _GameLibraryScreenState extends State<GameLibraryScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _editGameTitle(BuildContext context, Game game) async {
+    final TextEditingController controller = TextEditingController(text: game.title);
+    
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Game Title'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Game Title',
+                hintText: 'Enter new game title',
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newTitle != null && newTitle.isNotEmpty && newTitle != game.title && context.mounted) {
+      final provider = game.isIsoGame
+          ? Provider.of<IsoGamesProvider>(context, listen: false)
+          : Provider.of<LiveGamesProvider>(context, listen: false);
+      
+      final updatedGame = game.copyWith(title: newTitle);
+      await provider.updateGame(updatedGame);
+
+      // Ask if user wants to search for game details with new title
+      if (context.mounted) {
+        final shouldSearch = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Search Game Details'),
+            content: Text('Would you like to search for details for "$newTitle"?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Yes'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldSearch == true && context.mounted) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GameDetailsScreen(
+                game: updatedGame,
+                onGameUpdated: (game) async {
+                  await provider.updateGame(game);
+                  setState(() {});
+                },
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _launchGame(BuildContext context, Game game) async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    
+    try {
+      final xeniaPath = settings.xeniaCanaryPath;
+      
+      if (xeniaPath == null || xeniaPath.isEmpty) {
+        throw Exception('Xenia path not configured. Please set it in settings.');
+      }
+
+      // Make sure Xenia is executable
+      final xeniaFile = File(xeniaPath);
+      if (!await xeniaFile.exists()) {
+        throw Exception('Xenia executable not found at configured path: $xeniaPath');
+      }
+
+      // Set executable permission if needed
+      final stat = await xeniaFile.stat();
+      if ((stat.mode & 0x111) == 0) {
+        await Process.run('chmod', ['+x', xeniaPath]);
+      }
+
+      // Launch the game
+      final gameFile = File(game.path);
+      if (!await gameFile.exists()) {
+        throw Exception('Game file not found: ${game.path}');
+      }
+
+      // Log launch details
+      settings.log('Launching game: ${game.title}');
+      settings.log('Xenia executable path: $xeniaPath');
+      settings.log('Game file path: ${game.path}');
+
+      final process = await Process.start(
+        xeniaPath,
+        [game.path],
+        mode: ProcessStartMode.detached,
+      );
+
+      // Log process ID for debugging
+      settings.log('Xenia process started with PID: ${process.pid}');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Launching ${game.title}...')),
+        );
+      }
+    } catch (e) {
+      // Log any errors that occur
+      settings.log('Error launching game: $e');
+      
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Launch Failed'),
+            content: Text(e.toString()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       }
     }

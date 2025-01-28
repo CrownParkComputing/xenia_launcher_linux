@@ -10,15 +10,13 @@ import 'providers/iso_games_provider.dart';
 import 'providers/live_games_provider.dart';
 import 'providers/game_stats_provider.dart';
 import 'services/game_tracking_service.dart';
-import 'screens/xbox_games_screen.dart';
 import 'screens/logs_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/igdb_search_screen.dart';
-import 'screens/xbox_iso_extractor_screen.dart';
 import 'screens/zarchive_screen.dart';
 import 'screens/game_details_screen.dart';
 import 'services/igdb_service.dart';
-import 'services/game_service.dart';
+import 'services/universal_game_service.dart';
 import 'models/game.dart';
 import 'widgets/game_grid.dart';
 import 'dart:developer';
@@ -123,7 +121,7 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
   int _selectedIndex = 0;
   bool _isMaximized = false;
   late IGDBService _igdbService;
-  late GameService _gameService;
+  late UniversalGameService _gameService;
   List<Game> _games = [];
   bool _isLoading = true;
 
@@ -135,7 +133,7 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
     SharedPreferences.getInstance().then((prefs) {
       setState(() {
         _igdbService = IGDBService(prefs);
-        _gameService = GameService();
+        _gameService = UniversalGameService();
         _loadGames();
       });
     });
@@ -240,7 +238,6 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
       const IgdbSearchScreen(),
       const GameLibraryScreen(),
       const LogsScreen(),
-      const XboxIsoExtractorScreen(),
       const ZArchiveScreen(),
       const SettingsScreen(),
     ];
@@ -305,10 +302,6 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
                 label: Text('Logs'),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.extension),
-                label: Text('ISO Extractor'),
-              ),
-              NavigationRailDestination(
                 icon: Icon(Icons.archive),
                 label: Text('Game Files'),
               ),
@@ -330,60 +323,16 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
   Future<void> _launchGame(BuildContext context, Game game) async {
     try {
       final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+      await _gameService.launchGame(game, settingsProvider);
       
-      // Get the appropriate executable
-      String? executable = game.lastUsedExecutable;
-      if (executable == null) {
-        executable = settingsProvider.config.xeniaCanaryPath;
+      // Update last used executable if needed
+      if (game.lastUsedExecutable != settingsProvider.config.xeniaCanaryPath) {
+        final provider = game.isIsoGame
+            ? Provider.of<IsoGamesProvider>(context, listen: false)
+            : Provider.of<LiveGamesProvider>(context, listen: false);
+        final updatedGame = game.copyWith(lastUsedExecutable: settingsProvider.config.xeniaCanaryPath);
+        await provider.updateGame(updatedGame);
       }
-
-      if (executable == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Xenia Canary not configured')),
-        );
-        return;
-      }
-
-      // Get the Wine prefix from settings
-      final winePrefix = settingsProvider.config.winePrefix;
-      if (winePrefix == null || winePrefix.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Wine prefix not configured')),
-        );
-        return;
-      }
-
-      // Make the executable file executable
-      final executableFile = File(executable);
-      if (await executableFile.exists()) {
-        // Set executable permission (chmod +x)
-        await Process.run('chmod', ['+x', executable]);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Executable not found: $executable')),
-          );
-        }
-        return;
-      }
-
-      final provider = game.isIsoGame
-          ? Provider.of<IsoGamesProvider>(context, listen: false)
-          : Provider.of<LiveGamesProvider>(context, listen: false);
-
-      // Set up environment variables for Wine
-      final env = {
-        'WINEPREFIX': winePrefix,
-        'WINEDEBUG': '-all',
-      };
-
-      // Run the game using wine with the configured prefix
-      await Process.start('wine', [executable, game.path], environment: env);
-      
-      // Update last used executable
-      final updatedGame = game.copyWith(lastUsedExecutable: executable);
-      await provider.updateGame(updatedGame);
-
     } catch (e) {
       debugPrint('Error launching game: $e');
       if (mounted) {
@@ -444,12 +393,50 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
       );
 
       if (result != null && result.files.single.path != null) {
-        // Import the selected game
-        await provider.importGame(result.files.single.path!);
-        if (context.mounted) {
+        // Import the game using universal service
+        final game = await _gameService.importGame(result.files.single.path!, settingsProvider);
+        
+        if (game != null && context.mounted) {
+          await provider.addGame(game);
+          
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Game imported successfully')),
           );
+
+          // Prompt to search IGDB
+          final shouldSearch = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('Search Game Details'),
+              content: Text('Would you like to search for details for ${game.title}?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Later'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Search Now'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldSearch == true && context.mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => GameDetailsScreen(
+                  game: game,
+                  onGameUpdated: (updatedGame) async {
+                    await provider.updateGame(updatedGame);
+                    setState(() {});
+                  },
+                ),
+              ),
+            );
+          }
         }
       }
     } catch (e) {

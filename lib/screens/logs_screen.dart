@@ -1,54 +1,51 @@
 import 'package:flutter/material.dart';
-import 'dart:developer' as developer;
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
 
-class LogsScreen extends StatefulWidget {
+class LogsScreen extends StatelessWidget {
   const LogsScreen({super.key});
-
-  @override
-  State<LogsScreen> createState() => _LogsScreenState();
-}
-
-class _LogsScreenState extends State<LogsScreen> {
-  static final List<String> _logs = [];
-  static void addLog(String message) {
-    _logs.insert(0, "${DateTime.now()}: $message");
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Application Logs'),
+        title: const Text('Logs'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.clear_all),
+            icon: const Icon(Icons.delete),
             onPressed: () {
-              setState(() {
-                _logs.clear();
-              });
+              Provider.of<SettingsProvider>(context, listen: false).clearLogs();
             },
-            tooltip: 'Clear Logs',
+            tooltip: 'Clear logs',
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: _logs.length,
-        itemBuilder: (context, index) {
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(_logs[index]),
-            ),
+      body: Consumer<SettingsProvider>(
+        builder: (context, settings, _) {
+          final logs = settings.logs;
+          if (logs.isEmpty) {
+            return const Center(
+              child: Text('No logs available'),
+            );
+          }
+          return ListView.builder(
+            itemCount: logs.length,
+            itemBuilder: (context, index) {
+              final log = logs[logs.length - 1 - index]; // Show newest first
+              return ListTile(
+                dense: true,
+                title: Text(
+                  log,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
     );
   }
-}
-
-// Custom log handler that both prints to console and adds to logs screen
-void log(String message) {
-  developer.log(message);
-  _LogsScreenState.addLog(message);
 }

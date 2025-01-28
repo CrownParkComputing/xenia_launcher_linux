@@ -5,6 +5,7 @@ import '../providers/settings_provider.dart';
 import '../widgets/settings/version_check_card.dart';
 import '../widgets/settings/card_size_settings.dart';
 import '../widgets/settings/xenia_config_card.dart';
+import 'dart:io';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -25,61 +26,6 @@ class SettingsScreen extends StatelessWidget {
             const CardSizeSettings(),
             const SizedBox(height: 16),
             const XeniaConfigCard(),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Archive Settings',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Consumer<SettingsProvider>(
-                      builder: (context, settings, _) => Column(
-                        children: [
-                          ListTile(
-                            title: const Text('Archive Save Location'),
-                            subtitle: Text(settings.defaultCreatePath ?? 'Not set'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.folder_open),
-                              onPressed: () async {
-                                final path = await FilePicker.platform.getDirectoryPath(
-                                  dialogTitle: 'Select Archive Save Location',
-                                );
-                                if (path != null) {
-                                  settings.setDefaultCreatePath(path);
-                                }
-                              },
-                            ),
-                          ),
-                          ListTile(
-                            title: const Text('Game Files Location'),
-                            subtitle: Text(settings.defaultExtractPath ?? 'Not set'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.folder_open),
-                              onPressed: () async {
-                                final path = await FilePicker.platform.getDirectoryPath(
-                                  dialogTitle: 'Select Game Files Location',
-                                );
-                                if (path != null) {
-                                  settings.setDefaultExtractPath(path);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -88,5 +34,23 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _scanForExecutables(String basePath) async {
     // This method is handled within XeniaVariantsCard
+  }
+
+  Future<void> _selectExecutable(BuildContext context, Function(String?) onSelect) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: [''],
+      dialogTitle: 'Select Xenia Canary Executable',
+      allowMultiple: false,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final file = File(result.files.single.path!);
+      if (await file.exists()) {
+        // Make the file executable
+        await Process.run('chmod', ['+x', file.path]);
+        onSelect(file.path);
+      }
+    }
   }
 }

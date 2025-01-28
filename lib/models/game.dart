@@ -6,7 +6,7 @@ enum GameType { iso, live }
 class Game {
   final int? id;
   final String title;
-  final String? searchTitle;  // New field for IGDB search
+  final String? searchTitle;
   final String path;
   final String? coverPath;
   final DateTime dateAdded;
@@ -17,7 +17,7 @@ class Game {
   final DateTime? lastPlayed;
   final Duration totalPlayTime;
   final List<Achievement> achievements;
-  final int? igdbId;  // Added IGDB ID field
+  final int? igdbId;
   final String? summary;
   final double? rating;
   final DateTime? releaseDate;
@@ -26,7 +26,8 @@ class Game {
   final List<String>? screenshots;
   final String? coverUrl;
   final String? localCoverPath;
-  final String? gameFilePath;  // Added for Xbox Live games
+  final String? gameFilePath;
+  final bool isIsoGame;
 
   Game({
     this.id,
@@ -42,7 +43,7 @@ class Game {
     this.lastPlayed,
     Duration? totalPlayTime,
     List<Achievement>? achievements,
-    this.igdbId,  // Added to constructor
+    this.igdbId,
     this.summary,
     this.rating,
     this.releaseDate,
@@ -51,11 +52,13 @@ class Game {
     this.screenshots,
     this.coverUrl,
     this.localCoverPath,
-    this.gameFilePath,  // Added to constructor
+    this.gameFilePath,
+    bool? isIsoGame,
   })  : dateAdded = dateAdded ?? DateTime.now(),
-        dlc = dlc ?? [],
+        dlc = dlc ?? const [],
         totalPlayTime = totalPlayTime ?? Duration.zero,
-        achievements = achievements ?? [];
+        achievements = achievements ?? const [],
+        isIsoGame = isIsoGame ?? (type == GameType.iso);
 
   Map<String, dynamic> toJson() {
     return {
@@ -72,7 +75,7 @@ class Game {
       'lastPlayed': lastPlayed?.toIso8601String(),
       'totalPlayTime': totalPlayTime.inSeconds,
       'achievements': achievements.map((a) => a.toJson()).toList(),
-      'igdbId': igdbId,  // Added to JSON serialization
+      'igdbId': igdbId,
       'summary': summary,
       'rating': rating,
       'releaseDate': releaseDate?.toIso8601String(),
@@ -81,7 +84,8 @@ class Game {
       'screenshots': screenshots,
       'coverUrl': coverUrl,
       'localCoverPath': localCoverPath,
-      'gameFilePath': gameFilePath,  // Added to JSON serialization
+      'gameFilePath': gameFilePath,
+      'isIsoGame': isIsoGame,
     };
   }
 
@@ -104,18 +108,18 @@ class Game {
       dlc: (json['dlc'] as List<dynamic>?)
               ?.map((d) => DLC.fromJson(d as Map<String, dynamic>))
               .toList() ??
-          [],
+          const [],
       lastPlayed: json['lastPlayed'] != null
           ? DateTime.parse(json['lastPlayed'] as String)
           : null,
       totalPlayTime: json['totalPlayTime'] != null
           ? Duration(seconds: json['totalPlayTime'] as int)
-          : null,
+          : Duration.zero,
       achievements: (json['achievements'] as List<dynamic>?)
               ?.map((a) => Achievement.fromJson(a as Map<String, dynamic>))
               .toList() ??
-          [],
-      igdbId: json['igdbId'] as int?,  // Added to JSON deserialization
+          const [],
+      igdbId: json['igdbId'] as int?,
       summary: json['summary'] as String?,
       rating: json['rating'] as double?,
       releaseDate: json['releaseDate'] != null
@@ -126,7 +130,8 @@ class Game {
       screenshots: (json['screenshots'] as List<dynamic>?)?.cast<String>(),
       coverUrl: json['coverUrl'] as String?,
       localCoverPath: json['localCoverPath'] as String?,
-      gameFilePath: json['gameFilePath'] as String?,  // Added to JSON deserialization
+      gameFilePath: json['gameFilePath'] as String?,
+      isIsoGame: json['isIsoGame'] as bool? ?? true,
     );
   }
 
@@ -144,7 +149,7 @@ class Game {
     DateTime? lastPlayed,
     Duration? totalPlayTime,
     List<Achievement>? achievements,
-    int? igdbId,  // Added to copyWith
+    int? igdbId,
     String? summary,
     double? rating,
     DateTime? releaseDate,
@@ -153,7 +158,8 @@ class Game {
     List<String>? screenshots,
     String? coverUrl,
     String? localCoverPath,
-    String? gameFilePath,  // Added to copyWith
+    String? gameFilePath,
+    bool? isIsoGame,
   }) {
     return Game(
       id: id ?? this.id,
@@ -169,7 +175,7 @@ class Game {
       lastPlayed: lastPlayed ?? this.lastPlayed,
       totalPlayTime: totalPlayTime ?? this.totalPlayTime,
       achievements: achievements ?? List.from(this.achievements),
-      igdbId: igdbId ?? this.igdbId,  // Added to copyWith
+      igdbId: igdbId ?? this.igdbId,
       summary: summary ?? this.summary,
       rating: rating ?? this.rating,
       releaseDate: releaseDate ?? this.releaseDate,
@@ -178,33 +184,21 @@ class Game {
       screenshots: screenshots ?? this.screenshots,
       coverUrl: coverUrl ?? this.coverUrl,
       localCoverPath: localCoverPath ?? this.localCoverPath,
-      gameFilePath: gameFilePath ?? this.gameFilePath,  // Added to copyWith
+      gameFilePath: gameFilePath ?? this.gameFilePath,
+      isIsoGame: isIsoGame ?? this.isIsoGame,
     );
   }
 
   static String cleanGameTitle(String zipName) {
-    // Remove file extension
-    var title = zipName.replaceAll(RegExp(r'\.zip$', caseSensitive: false), '');
-
-    // Remove anything in parentheses
+    var title = zipName.replaceAll(RegExp(r'\.(iso|zar|zip)$', caseSensitive: false), '');
     title = title.replaceAll(RegExp(r'\s*\([^)]*\)'), '');
-
-    // Remove special characters and multiple spaces
     title = title.replaceAll(RegExp(r'[^\w\s-]'), '');
     title = title.replaceAll(RegExp(r'\s+'), ' ');
-
-    // Trim whitespace
-    title = title.trim();
-
-    return title;
+    return title.trim();
   }
 
   bool get isLiveGame => type == GameType.live;
-  bool get isIsoGame => type == GameType.iso;
   bool get hasDLC => dlc.isNotEmpty;
-
   String get displayPath => isLiveGame ? executablePath ?? path : path;
-  
-  // Use searchTitle if available, otherwise use title
   String get effectiveSearchTitle => searchTitle ?? title;
 }

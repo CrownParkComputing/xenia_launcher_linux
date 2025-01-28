@@ -1,122 +1,142 @@
 import 'dart:io';
-import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import '../models/game.dart';
+import '../providers/settings_provider.dart';
+import 'base_service.dart';
 
-class LiveGameService {
-  static Future<Game?> extractGame(
-      String zipPath, String destinationDir) async {
+class LiveGameService extends BaseService {
+  final SettingsProvider _settings;
+
+  LiveGameService(this._settings);
+
+  Future<Game?> importGame(String rarPath) async {
     try {
-      final bytes = await File(zipPath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
+      log('Importing Xbox Live game from RAR: $rarPath');
+      
+      // Create temp extraction directory
+      final tempExtractPath = path.join(_settings.defaultExtractPath!, 'temp_extract');
+      await Directory(tempExtractPath).create(recursive: true);
+      
+      try {
+        // Extract RAR to temp directory
+        log('Extracting RAR to temp directory for scanning...');
+        final result = await Process.run('unrar', [
+          'x',      // extract with full path
+          '-y',     // assume yes on all queries
+          rarPath,  // source file
+          tempExtractPath, // destination directory
+        ]);
 
-      // Get game title from zip filename
-      final zipName = path.basename(zipPath);
-      final gameTitle = Game.cleanGameTitle(zipName);
+        if (result.exitCode != 0) {
+          throw Exception('Failed to extract RAR: ${result.stderr}');
+        }
 
-      // Create game directory
-      final gameDir = Directory(path.join(destinationDir, gameTitle));
-      if (!gameDir.existsSync()) {
-        gameDir.createSync(recursive: true);
-      }
-
-      // Extract files
-      String? executablePath;
-      for (final file in archive) {
-        final filename = file.name;
-        if (file.isFile) {
-          final data = file.content as List<int>;
-          final filePath = path.join(gameDir.path, filename);
-
-          // Create parent directory if it doesn't exist
-          final parentDir = Directory(path.dirname(filePath));
-          if (!parentDir.existsSync()) {
-            parentDir.createSync(recursive: true);
-          }
-
-          // Write file
-          File(filePath).writeAsBytesSync(data);
-
-          // Check if this is the executable (file with no extension in deepest subfolder)
-          if (path.extension(filename).isEmpty) {
-            final currentDepth = filename.split('/').length;
-            final currentExecDepth = executablePath?.split('/').length ?? 0;
-            if (executablePath == null || currentDepth > currentExecDepth) {
-              executablePath = filePath;
-            }
+        // Look for default.xex to get game info
+        log('Scanning for default.xex...');
+        String? xexPath;
+        await for (var entity in Directory(tempExtractPath).list(recursive: true)) {
+          if (entity is File && path.basename(entity.path).toLowerCase() == 'default.xex') {
+            xexPath = entity.path;
+            break;
           }
         }
-      }
 
-      if (executablePath == null) {
-        throw Exception('No executable found in zip file');
-      }
+        if (xexPath == null) {
+          throw Exception('No default.xex found in RAR archive');
+        }
 
-      return Game(
-        title: gameTitle,
-        path: gameDir.path,
-        type: GameType.live,
-        executablePath: executablePath,
-      );
+        // Get game title from folder name or xex
+        final gameFolder = path.basename(path.dirname(xexPath));
+        final gameTitle = gameFolder.replaceAll(RegExp(r'[_\-.]'), ' ');
+
+        // Create game object
+        final game = Game(
+          id: DateTime.now().millisecondsSinceEpoch,
+          title: gameTitle,
+          path: rarPath,
+          type: GameType.live,
+          isIsoGame: false,
+        );
+
+        log('Game imported successfully: ${game.title}');
+        return game;
+
+      } finally {
+        // Clean up temp directory
+        log('Cleaning up temporary extraction directory...');
+        if (await Directory(tempExtractPath).exists()) {
+          await Directory(tempExtractPath).delete(recursive: true);
+        }
+      }
     } catch (e) {
-      print('Error extracting game: $e');
-      // Clean up if extraction failed
-      final gameDir = Directory(path.join(
-          destinationDir, Game.cleanGameTitle(path.basename(zipPath))));
-      if (gameDir.existsSync()) {
-        await gameDir.delete(recursive: true);
-      }
+      log('Error importing game: $e');
       rethrow;
     }
   }
 
-  static Future<String?> findExecutable(String gameDir) async {
-    String? executablePath;
-    int maxDepth = 0;
-
-    await for (final entity in Directory(gameDir).list(recursive: true)) {
-      if (entity is File && path.extension(entity.path).isEmpty) {
-        final depth =
-            path.split(path.relative(entity.path, from: gameDir)).length;
-        if (depth > maxDepth) {
-          maxDepth = depth;
-          executablePath = entity.path;
-        }
-      }
-    }
-
-    return executablePath;
-  }
-
-  static Future<bool> verifyGameStructure(String gameDir) async {
+  Future<void> launchGame(Game game) async {
     try {
-      final executablePath = await findExecutable(gameDir);
-      return executablePath != null;
-    } catch (e) {
-      return false;
-    }
-  }
+      log('Preparing to launch Xbox Live game: ${game.title}');
+      
+      // Create extraction directory
+      final extractPath = path.join(_settings.defaultExtractPath!, path.basenameWithoutExtension(game.path));
+      await Directory(extractPath).create(recursive: true);
 
-  static Future<List<Game>> scanLiveGamesDirectory(String directory) async {
-    final games = <Game>[];
-    final dir = Directory(directory);
+      // Extract RAR
+      log('Extracting game files...');
+      final result = await Process.run('unrar', [
+        'x',      // extract with full path
+        '-y',     // assume yes on all queries
+        game.path,  // source file
+        extractPath, // destination directory
+      ]);
 
-    if (!dir.existsSync()) return games;
+      if (result.exitCode != 0) {
+        throw Exception('Failed to extract game files: ${result.stderr}');
+      }
 
-    await for (final entity in dir.list()) {
-      if (entity is Directory) {
-        final executablePath = await findExecutable(entity.path);
-        if (executablePath != null) {
-          games.add(Game(
-            title: path.basename(entity.path),
-            path: entity.path,
-            type: GameType.live,
-            executablePath: executablePath,
-          ));
+      // Find default.xex
+      String? xexPath;
+      await for (var entity in Directory(extractPath).list(recursive: true)) {
+        if (entity is File && path.basename(entity.path).toLowerCase() == 'default.xex') {
+          xexPath = entity.path;
+          break;
         }
       }
-    }
 
-    return games;
+      if (xexPath == null) {
+        throw Exception('Could not find default.xex after extraction');
+      }
+
+      // Launch game with Xenia
+      final xeniaPath = _settings.xeniaCanaryPath;
+      if (xeniaPath == null) {
+        throw Exception('Xenia path not configured');
+      }
+
+      log('Launching game with Xenia...');
+      log('Xenia path: $xeniaPath');
+      log('Game path: $xexPath');
+
+      final process = await Process.start(
+        xeniaPath,
+        [xexPath],
+        mode: ProcessStartMode.detached,
+      );
+
+      log('Game launched with PID: ${process.pid}');
+
+      // Start monitoring process
+      process.exitCode.then((_) async {
+        log('Game process ended, cleaning up extracted files...');
+        if (await Directory(extractPath).exists()) {
+          await Directory(extractPath).delete(recursive: true);
+        }
+      });
+
+    } catch (e) {
+      log('Error launching game: $e');
+      rethrow;
+    }
   }
-}
+} 

@@ -7,8 +7,9 @@ import 'package:http/http.dart' as http;
 import '../models/igdb_game.dart';
 import '../models/game.dart';
 import 'dart:developer' as developer;
+import 'base_service.dart';
 
-class IGDBService {
+class IGDBService extends BaseService {
   final String _baseUrl = 'https://api.igdb.com/v4';
   static const String _clientId = 'iwv8b7b2j538q7q956u8kpclmkwo3x';
   static const String _clientSecret = 'biypz8t9eyy4kj9cakkpqzyzj02yct';
@@ -17,7 +18,7 @@ class IGDBService {
   static const String _cacheKey = 'igdb_cache';
   final SharedPreferences _prefs;
 
-  IGDBService(this._prefs) {
+  IGDBService(this._prefs) : super() {
     _loadCache();
   }
 
