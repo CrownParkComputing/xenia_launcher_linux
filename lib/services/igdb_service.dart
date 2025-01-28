@@ -6,6 +6,7 @@ import '../screens/logs_screen.dart' show log;
 import 'package:http/http.dart' as http;
 import '../models/igdb_game.dart';
 import '../models/game.dart';
+import 'dart:developer' as developer;
 
 class IGDBService {
   final String _baseUrl = 'https://api.igdb.com/v4';
@@ -77,22 +78,72 @@ class IGDBService {
     }
   }
 
-  Future<IGDBGame?> getGameById(int id) async {
-    final cacheKey = 'id_$id';
-    if (_cache.containsKey(cacheKey)) {
-      return _cache[cacheKey];
-    }
-
+  Future<IGDBGame?> getGameDetails(String gameName) async {
     try {
-      log('Getting game details for ID: $id');
+      // Check cache first
+      if (_cache.containsKey(gameName)) {
+        return _cache[gameName];
+      }
+
+      // First get basic game info to get the ID
+      final token = await _getAccessToken();
+      final searchQuery = '''
+        fields id,name,cover.url;
+        search "${gameName.replaceAll('"', '\\"')}";
+        limit 1;
+      ''';
+
+      final searchResponse = await http.post(
+        Uri.parse('$_baseUrl/games'),
+        headers: {
+          'Client-ID': _clientId,
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+        body: searchQuery,
+      );
+
+      if (searchResponse.statusCode != 200) {
+        throw Exception('Failed to search game: ${searchResponse.statusCode}');
+      }
+
+      final List<dynamic> searchResults = json.decode(searchResponse.body);
+      if (searchResults.isEmpty) return null;
+
+      // Get the ID and fetch full details
+      final gameId = searchResults.first['id'] as int;
+      final fullGame = await getGameById(gameId);
+
+      if (fullGame != null) {
+        // Download cover if available
+        if (fullGame.coverUrl != null) {
+          await downloadCover(fullGame.coverUrl!, gameName);
+        }
+        _cache[gameName] = fullGame;
+        await _saveCache();
+      }
+
+      return fullGame;
+    } catch (e) {
+      log('Error in getGameDetails: $e');
+      return null;
+    }
+  }
+
+  Future<IGDBGame?> getGameById(int id) async {
+    try {
+      log('Getting full game details for ID: $id');
       final token = await _getAccessToken();
 
       final detailsQuery = '''
-        fields id,name,summary,screenshots.url,genres.name,game_modes.name,cover.url,rating,release_dates.date;
+        fields name,summary,storyline,cover.*,screenshots.*,genres.*,
+               rating,release_dates.*,platforms.*,involved_companies.company.*,
+               game_modes.*,themes.*,similar_games.*,dlcs.*,expansions.*,
+               remakes.*,remasters.*,aggregated_rating,aggregated_rating_count,
+               total_rating,total_rating_count,first_release_date,status,category,
+               version_title,game_engines.*,player_perspectives.*;
         where id = $id;
       ''';
-
-      log('IGDB Details Query:\n$detailsQuery');
 
       final detailsResponse = await http.post(
         Uri.parse('$_baseUrl/games'),
@@ -102,27 +153,24 @@ class IGDBService {
           'Accept': 'application/json',
         },
         body: detailsQuery,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Connection timeout while fetching game details');
-        },
       );
 
-      log('IGDB details response status: ${detailsResponse.statusCode}');
-      log('IGDB details response body: ${detailsResponse.body}');
-
       if (detailsResponse.statusCode != 200) {
-        throw Exception(
-            'Failed to fetch game details: HTTP ${detailsResponse.statusCode}');
+        log('Failed to get game details: HTTP ${detailsResponse.statusCode}');
+        log('Response body: ${detailsResponse.body}');
+        throw Exception('Failed to get game details: ${detailsResponse.statusCode}');
       }
 
       final List<dynamic> games = json.decode(detailsResponse.body);
-      final game = games.isNotEmpty ? IGDBGame.fromJson(games.first) : null;
-      if (game != null) {
-        _cache[cacheKey] = game;
-        await _saveCache();
+      if (games.isEmpty) {
+        log('No game found with ID: $id');
+        return null;
       }
+
+      final gameData = games.first;
+      log('Got game details: ${json.encode(gameData)}');
+      
+      final game = IGDBGame.fromJson(gameData);
       return game;
     } catch (e) {
       log('Error in getGameById: $e');
@@ -130,136 +178,58 @@ class IGDBService {
     }
   }
 
-  Future<IGDBGame?> getGameDetails(String gameName) async {
-    // Check cache first
-    if (_cache.containsKey(gameName)) {
-      return _cache[gameName];
-    }
-
-    final results = await searchGames(gameName);
-    if (results.isNotEmpty) {
-      _cache[gameName] = results.first;
-      await _saveCache();
-      return results.first;
-    }
-    return null;
-  }
-
   Future<List<IGDBGame>> searchGames(String gameName) async {
     try {
-      // Check cache first
-      if (_cache.containsKey(gameName)) {
-        return [_cache[gameName]!];
-      }
-
       // Clean the game name using the Game model's cleanGameTitle method
       final cleanedGameName = Game.cleanGameTitle(gameName);
       log('Starting game search for: $cleanedGameName (original: $gameName)');
       final token = await _getAccessToken();
 
-      // First get game IDs from search endpoint
+      // Get more information in the search results
       final searchQuery = '''
-        fields name,game;
+        fields id,name,cover.url,rating,release_dates.date,summary,genres.name,
+              screenshots.url,game_modes.name,platforms.name,
+              aggregated_rating,aggregated_rating_count,
+              total_rating,total_rating_count,first_release_date;
         search "${cleanedGameName.replaceAll('"', '\\"')}";
-        where game != null;
         limit 10;
       ''';
 
-      log('IGDB Search Query:\n$searchQuery');
-
       final searchResponse = await http.post(
-        Uri.parse('$_baseUrl/search'),
-        headers: {
-          'Client-ID': _clientId,
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-        body: searchQuery,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Connection timeout while searching games');
-        },
-      );
-
-      log('IGDB search response status: ${searchResponse.statusCode}');
-      log('IGDB search response body: ${searchResponse.body}');
-
-      if (searchResponse.statusCode != 200) {
-        throw Exception(
-            'Failed to search games: HTTP ${searchResponse.statusCode}');
-      }
-
-      final List<dynamic> searchResults = json.decode(searchResponse.body);
-      if (searchResults.isEmpty) {
-        return [];
-      }
-
-      // Extract game IDs
-      final gameIds = searchResults
-          .where((result) => result['game'] != null)
-          .map((result) => result['game'].toString())
-          .toList();
-
-      if (gameIds.isEmpty) {
-        return [];
-      }
-
-      // Get detailed game info
-      final detailsQuery = '''
-        fields id,name,summary,screenshots.url,genres.name,game_modes.name,cover.url,rating,release_dates.date;
-        where id = (${gameIds.join(',')});
-        limit ${gameIds.length};
-      ''';
-
-      log('IGDB Details Query:\n$detailsQuery');
-
-      final detailsResponse = await http.post(
         Uri.parse('$_baseUrl/games'),
         headers: {
           'Client-ID': _clientId,
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
         },
-        body: detailsQuery,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Connection timeout while fetching game details');
-        },
+        body: searchQuery,
       );
 
-      log('IGDB details response status: ${detailsResponse.statusCode}');
-      log('IGDB details response body: ${detailsResponse.body}');
-
-      if (detailsResponse.statusCode != 200) {
-        throw Exception(
-            'Failed to fetch game details: HTTP ${detailsResponse.statusCode}');
+      if (searchResponse.statusCode != 200) {
+        log('Failed to search games: HTTP ${searchResponse.statusCode}');
+        log('Response body: ${searchResponse.body}');
+        throw Exception('Failed to search games: ${searchResponse.statusCode}');
       }
 
-      final List<dynamic> games = json.decode(detailsResponse.body);
-      final results = games.map((g) => IGDBGame.fromJson(g)).toList()
-        ..sort((a, b) {
-          if (a.rating != null && b.rating != null) {
-            return b.rating!.compareTo(a.rating!);
-          }
-          if (a.rating != null) return -1;
-          if (b.rating != null) return 1;
-          return 0;
-        });
-
-      if (results.isNotEmpty) {
-        _cache[gameName] = results.first;
-        await _saveCache();
-        log('Successfully found ${results.length} games');
-      } else {
-        log('No matches found');
-      }
+      final List<dynamic> searchResults = json.decode(searchResponse.body);
+      log('Found ${searchResults.length} results');
+      
+      final results = searchResults.map((g) => IGDBGame.fromJson(g)).toList();
+      
+      // Sort by rating if available
+      results.sort((a, b) {
+        if (a.rating != null && b.rating != null) {
+          return b.rating!.compareTo(a.rating!);
+        }
+        if (a.rating != null) return -1;
+        if (b.rating != null) return 1;
+        return 0;
+      });
 
       return results;
     } catch (e) {
       log('Error in searchGames: $e');
-      rethrow;
+      return [];
     }
   }
 
@@ -290,18 +260,84 @@ class IGDBService {
     }
   }
 
-  Future<void> downloadCover(String url, String gameName) async {
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
+  Future<String?> downloadCover(String url, String gameName) async {
+    try {
+      // Create covers directory in the app's directory
       final directory = Directory('covers');
       if (!directory.existsSync()) {
-        directory.createSync();
+        directory.createSync(recursive: true);
       }
-      final filePath = path.join(directory.path, '$gameName.jpg');
+
+      // Clean the filename
+      final cleanName = gameName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      final fileName = '$cleanName.jpg';
+      final filePath = path.join(directory.path, fileName);
       final file = File(filePath);
-      await file.writeAsBytes(response.bodyBytes);
-    } else {
-      throw Exception('Failed to download cover');
+
+      // Check if file already exists
+      if (file.existsSync()) {
+        log('Cover already exists for: $gameName');
+        return filePath;
+      }
+
+      // Ensure URL is properly formatted
+      var downloadUrl = url;
+      if (downloadUrl.startsWith('//')) {
+        downloadUrl = 'https:$downloadUrl';
+      }
+      if (!downloadUrl.contains('t_cover_big')) {
+        downloadUrl = downloadUrl.replaceAll(RegExp(r't_\w+'), 't_cover_big');
+      }
+
+      // Download the image
+      log('Downloading cover from: $downloadUrl');
+      final response = await http.get(Uri.parse(downloadUrl));
+      if (response.statusCode == 200) {
+        await file.writeAsBytes(response.bodyBytes);
+        log('Successfully downloaded cover for: $gameName');
+        return filePath;
+      } else {
+        log('Failed to download cover: HTTP ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      log('Error downloading cover: $e');
+      return null;
     }
+  }
+
+  String? getLocalCoverPath(String gameName) {
+    final cleanName = gameName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    final fileName = '$cleanName.jpg';
+    final filePath = path.join('covers', fileName);
+    final file = File(filePath);
+    return file.existsSync() ? filePath : null;
+  }
+
+  Future<Game?> checkAndFetchMissingCovers(List<Game> games) async {
+    // First check for any games missing IGDB IDs - this is highest priority
+    final missingIdGame = games.firstWhere(
+      (game) => game.igdbId == null,
+      orElse: () => games.firstWhere(
+        (game) => getLocalCoverPath(game.title) == null,
+        orElse: () => games[0], // This won't be used since we return null below
+      ),
+    );
+
+    if (missingIdGame.igdbId == null) {
+      log('Found game missing IGDB ID: ${missingIdGame.title}');
+      return missingIdGame;
+    }
+
+    // Then check for missing covers
+    for (final game in games) {
+      final localPath = getLocalCoverPath(game.title);
+      if (localPath == null) {
+        log('Found game missing cover: ${game.title}');
+        return game;
+      }
+    }
+
+    return null;
   }
 }

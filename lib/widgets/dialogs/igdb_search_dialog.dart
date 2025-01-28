@@ -131,7 +131,37 @@ class _IgdbSearchDialogState extends State<IgdbSearchDialog> {
                         subtitle: game.releaseDate != null
                             ? Text(DateFormat.yMMMd().format(game.releaseDate!))
                             : null,
-                        onTap: () => Navigator.pop(context, game),
+                        onTap: () async {
+                          debugPrint('Selected game: ${game.name} with ID: ${game.id}');
+                          
+                          // Get full game details using the ID
+                          final fullGameDetails = await _igdbService.getGameById(game.id);
+                          if (fullGameDetails == null) {
+                            debugPrint('Failed to get full game details');
+                            if (!context.mounted) return;
+                            Navigator.of(context).pop(game);
+                            return;
+                          }
+
+                          debugPrint('Got full game details');
+                          // Download cover if available
+                          if (fullGameDetails.coverUrl != null) {
+                            debugPrint('Downloading cover for ${fullGameDetails.name}');
+                            final downloadedPath = await _igdbService.downloadCover(
+                              fullGameDetails.coverUrl!,
+                              fullGameDetails.name,
+                            );
+                            if (downloadedPath != null) {
+                              fullGameDetails.localCoverPath = downloadedPath;
+                              debugPrint('Cover downloaded to: $downloadedPath');
+                            } else {
+                              debugPrint('Failed to download cover');
+                            }
+                          }
+                          
+                          if (!context.mounted) return;
+                          Navigator.of(context).pop(fullGameDetails);
+                        },
                       ),
                     );
                   },

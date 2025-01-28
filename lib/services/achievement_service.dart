@@ -17,12 +17,10 @@ class AchievementService {
     print('Game path: ${game.path}');
 
     // Get the executable from settings
-    final executable = settingsProvider.config.xeniaCanaryPath ?? 
-                      settingsProvider.config.xeniaNetplayPath ?? 
-                      settingsProvider.config.xeniaStablePath;
+    final executable = settingsProvider.config.xeniaCanaryPath;
                       
     if (executable == null) {
-      print('No Xenia executables configured');
+      print('No Xenia executable configured');
       return [];
     }
 
@@ -42,18 +40,18 @@ class AchievementService {
     Process? xeniaProcess;
     try {
       // Get the correct path to launch based on game type
-      final launchPath = game.isLiveGame ? game.executablePath! : game.path;
+      final launchPath = game.gameFilePath ?? game.path;
       print('Launching game with path: $launchPath');
 
       // Launch Xenia with wine prefix if provided
-      final command = winePrefix.isNotEmpty
+      final List<String> command = winePrefix.isNotEmpty
           ? ['WINEPREFIX=$winePrefix', executable, launchPath]
           : [executable, launchPath];
 
       // Launch Xenia with the appropriate command
       xeniaProcess = await Process.start(
         winePrefix.isNotEmpty ? 'env' : executable,
-        winePrefix.isNotEmpty ? command : [launchPath],
+        command,
         workingDirectory: xeniaDir,
       );
 

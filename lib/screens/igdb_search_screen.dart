@@ -5,6 +5,7 @@ import '../models/igdb_game.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 
 class IgdbSearchScreen extends StatefulWidget {
   const IgdbSearchScreen({super.key});
@@ -127,15 +128,22 @@ class _IgdbSearchScreenState extends State<IgdbSearchScreen> {
                                 SizedBox(
                                   width: 100,
                                   height: 150,
-                                  child: CachedNetworkImage(
-                                    imageUrl: game.coverUrl!,
-                                    fit: BoxFit.contain,
-                                    placeholder: (context, url) => const Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                    errorWidget: (context, url, error) =>
-                                        const Icon(Icons.error),
-                                  ),
+                                  child: game.localCoverPath != null
+                                    ? Image.file(
+                                        File(game.localCoverPath!),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Icon(Icons.error),
+                                      )
+                                    : CachedNetworkImage(
+                                        imageUrl: game.coverUrl!,
+                                        fit: BoxFit.contain,
+                                        placeholder: (context, url) => const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                        errorWidget: (context, url, error) =>
+                                            const Icon(Icons.error),
+                                      ),
                                 )
                               else
                                 Container(

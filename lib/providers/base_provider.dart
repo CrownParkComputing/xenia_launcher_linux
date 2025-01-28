@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/config.dart';
@@ -95,5 +96,29 @@ class BaseProvider with ChangeNotifier {
     if (fileName == 'xenia_canary_netplay.exe') return 'Xenia Netplay';
     if (fileName == 'xenia.exe') return 'Xenia Stable';
     return fileName;
+  }
+
+  Future<void> runGame(Game game, String executable) async {
+    try {
+      final process = await Process.start(executable, [game.path]);
+      
+      // Update last used executable
+      final updatedGame = game.copyWith(lastUsedExecutable: executable);
+      await updateGame(updatedGame);
+      
+      // Handle process output
+      process.stdout.listen((data) {
+        // Handle stdout if needed
+      });
+      
+      process.stderr.listen((data) {
+        // Handle stderr if needed
+      });
+      
+      await process.exitCode; // Wait for process to complete
+    } catch (e) {
+      debugPrint('Error running game: $e');
+      rethrow;
+    }
   }
 }

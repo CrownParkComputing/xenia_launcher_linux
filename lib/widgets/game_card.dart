@@ -15,6 +15,9 @@ import 'game_card/game_cover.dart';
 import 'game_card/game_title_section.dart';
 import 'game_card/game_actions_section.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as developer;
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class GameCard extends StatefulWidget {
   final Game game;
@@ -66,11 +69,41 @@ class _GameCardState extends State<GameCard> {
 
   Future<void> _loadGameDetails() async {
     try {
-      final details = await _gameSearchService.searchGame(context, widget.game);
-      if (mounted) {
-        setState(() {
-          _gameDetails = details;
-        });
+      if (widget.game.igdbId != null) {
+        developer.log('Loading game details using IGDB ID: ${widget.game.igdbId}');
+        final details = await _igdbService.getGameById(widget.game.igdbId!);
+        if (details != null && mounted) {
+          setState(() {
+            _gameDetails = details;
+          });
+          
+          // Update the game with the new details
+          final provider = widget.game.isIsoGame
+              ? Provider.of<IsoGamesProvider>(context, listen: false)
+              : Provider.of<LiveGamesProvider>(context, listen: false);
+
+          final updatedGame = widget.game.copyWith(
+            igdbId: details.id,
+            summary: details.summary,
+            rating: details.rating,
+            releaseDate: details.releaseDate,
+            genres: details.genres,
+            gameModes: details.gameModes,
+            screenshots: details.screenshots,
+            coverUrl: details.coverUrl,
+            localCoverPath: details.localCoverPath,
+          );
+          
+          await provider.updateGame(updatedGame);
+        }
+      } else {
+        developer.log('No IGDB ID found, searching by name');
+        final details = await _gameSearchService.searchGame(context, widget.game);
+        if (details != null && mounted) {
+          setState(() {
+            _gameDetails = details;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading game details: $e');
@@ -78,20 +111,85 @@ class _GameCardState extends State<GameCard> {
   }
 
   Future<void> _showIgdbSearchDialog() async {
-    final result = await showDialog<IGDBGame>(
-      context: context,
-      builder: (context) => IgdbSearchDialog(
-        currentTitle: widget.game.title,
-      ),
-    );
+    try {
+      final result = await showDialog<IGDBGame>(
+        context: context,
+        builder: (context) => IgdbSearchDialog(
+          currentTitle: widget.game.title,
+        ),
+      );
 
-    if (result != null && mounted) {
+      if (result != null && mounted) {
+        final provider = widget.game.isIsoGame
+            ? Provider.of<IsoGamesProvider>(context, listen: false)
+            : Provider.of<LiveGamesProvider>(context, listen: false);
+
+        // Create updated game with ALL details from the selected IGDB game
+        final updatedGame = widget.game.copyWith(
+          igdbId: result.id,
+          searchTitle: result.name,  // Store IGDB name for future searches
+          summary: result.summary,
+          rating: result.rating,
+          releaseDate: result.releaseDate,
+          genres: result.genres,
+          gameModes: result.gameModes,
+          screenshots: result.screenshots,
+          coverUrl: result.coverUrl,
+          localCoverPath: result.localCoverPath,
+        );
+        
+        // Update the game in the provider to persist changes
+        await provider.updateGame(updatedGame);
+        
+        // Update local state to reflect changes immediately
+        setState(() {
+          _gameDetails = result;
+        });
+        
+        developer.log('Stored IGDB game details permanently. Game ID: ${result.id}, Title: ${result.name}');
+      }
+    } catch (e) {
+      debugPrint('Error storing IGDB game details: $e');
+    }
+  }
+
+  Future<void> _handleTitleEdit(String newTitle) async {
+    try {
       final provider = widget.game.isIsoGame
           ? Provider.of<IsoGamesProvider>(context, listen: false)
           : Provider.of<LiveGamesProvider>(context, listen: false);
+      
+      // Show search dialog with new title
+      final result = await showDialog<IGDBGame>(
+        context: context,
+        builder: (context) => IgdbSearchDialog(
+          currentTitle: newTitle,
+        ),
+      );
 
-      final updatedGame = widget.game.copyWith(igdbId: result.id);
-      await provider.updateGame(updatedGame);
+      if (result != null && mounted) {
+        // Use the same update logic as _showIgdbSearchDialog
+        final updatedGame = widget.game.copyWith(
+          igdbId: result.id,
+          title: newTitle,  // Keep the user's edited title
+          searchTitle: result.name,  // Store IGDB name for future searches
+          summary: result.summary,
+          rating: result.rating,
+          releaseDate: result.releaseDate,
+          genres: result.genres,
+          gameModes: result.gameModes,
+          screenshots: result.screenshots,
+          coverUrl: result.coverUrl,
+          localCoverPath: result.localCoverPath,
+        );
+        
+        await provider.updateGame(updatedGame);
+        setState(() {
+          _gameDetails = result;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error updating game details: $e');
     }
   }
 
@@ -146,7 +244,7 @@ class _GameCardState extends State<GameCard> {
                 Expanded(
                   flex: 3,
                   child: GameCover(
-                    localCoverPath: widget.game.coverPath,
+                    localCoverPath: widget.game.localCoverPath ?? _gameDetails?.localCoverPath,
                     gameDetails: _gameDetails,
                     isHovering: _isHovering,
                     onPlayTap: widget.onPlayTap,
@@ -161,7 +259,8 @@ class _GameCardState extends State<GameCard> {
                       GameTitleSection(
                         title: widget.game.title,
                         executableDisplayName: widget.executableDisplayName,
-                        onEditTap: _showIgdbSearchDialog,
+                        onTitleEdit: _handleTitleEdit,
+                        onSearchTap: _showIgdbSearchDialog,
                       ),
                       GameActionsSection(
                         onDeleteTap: widget.onDeleteTap,

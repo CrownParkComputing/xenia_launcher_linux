@@ -1,53 +1,102 @@
 import 'package:flutter/material.dart';
-import '../dialogs/igdb_search_dialog.dart';
 
-class GameTitleSection extends StatelessWidget {
+class GameTitleSection extends StatefulWidget {
   final String title;
   final String? executableDisplayName;
-  final VoidCallback onEditTap;
+  final Function(String) onTitleEdit;
+  final VoidCallback onSearchTap;
 
   const GameTitleSection({
     super.key,
     required this.title,
     this.executableDisplayName,
-    required this.onEditTap,
+    required this.onTitleEdit,
+    required this.onSearchTap,
   });
+
+  @override
+  State<GameTitleSection> createState() => _GameTitleSectionState();
+}
+
+class _GameTitleSectionState extends State<GameTitleSection> {
+  bool _isEditing = false;
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.title);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _saveTitle() {
+    if (_controller.text.isNotEmpty && _controller.text != widget.title) {
+      widget.onTitleEdit(_controller.text);
+    }
+    setState(() => _isEditing = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+          Expanded(
+            child: _isEditing
+              ? TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.check),
+                      onPressed: _saveTitle,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  onSubmitted: (_) => _saveTitle(),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (widget.executableDisplayName != null)
+                      Text(
+                        widget.executableDisplayName!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                  ],
                 ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(_isEditing ? Icons.close : Icons.edit),
+                onPressed: () {
+                  if (_isEditing) {
+                    _controller.text = widget.title;
+                  }
+                  setState(() => _isEditing = !_isEditing);
+                },
+                tooltip: _isEditing ? 'Cancel' : 'Edit Title',
               ),
               IconButton(
-                icon: const Icon(Icons.search, size: 16),
-                onPressed: onEditTap,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.search),
+                onPressed: widget.onSearchTap,
                 tooltip: 'Search IGDB',
               ),
             ],
           ),
-          if (executableDisplayName != null)
-            Text(
-              executableDisplayName!,
-              style: Theme.of(context).textTheme.bodySmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
         ],
       ),
     );

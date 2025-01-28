@@ -8,9 +8,27 @@ import '../models/game.dart';
 import '../models/dlc.dart';
 import '../screens/dlc_dialog.dart';
 import '../widgets/game_grid.dart';
+import '../screens/game_details_screen.dart';
 
-class LiveGamesScreen extends StatelessWidget {
+class LiveGamesScreen extends StatefulWidget {
   const LiveGamesScreen({super.key});
+
+  @override
+  _LiveGamesScreenState createState() => _LiveGamesScreenState();
+}
+
+class _LiveGamesScreenState extends State<LiveGamesScreen> {
+  String _getExecutableDisplayName(String? executablePath) {
+    if (executablePath == null) return 'No executable set';
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final dummyGame = Game(
+      title: '',
+      path: '',
+      lastUsedExecutable: executablePath,
+      type: GameType.live,
+    );
+    return settingsProvider.getExecutableDisplayName(dummyGame) ?? 'Unknown';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,14 +72,14 @@ class LiveGamesScreen extends StatelessWidget {
           Expanded(
             child: GameGrid(
               games: liveProvider.liveGames,
-              getExecutableDisplayName:
-                  settingsProvider.getExecutableDisplayName,
+              getExecutableDisplayName: _getExecutableDisplayName,
               onGameTap: (game) => _launchGame(context, game),
               onGameMoreTap: (game) => _showDLCDialog(context, game),
               onGameDelete: (game) => _removeGame(context, game),
               onGameTitleEdit: (game, newTitle) => _updateGameTitle(context, game, newTitle),
               onGameSearchTitleEdit: (game, newSearchTitle) => _updateGameSearchTitle(context, game, newSearchTitle),
               onImportTap: () => _importGame(context),
+              showAddGame: true,
             ),
           ),
         ],
@@ -105,6 +123,40 @@ class LiveGamesScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Game imported successfully')),
         );
+
+        // Prompt user to search IGDB for game details
+        final shouldSearch = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Search Game Details'),
+            content: const Text('Would you like to search IGDB to set the correct game details?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Later'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Search Now'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldSearch == true && context.mounted) {
+          // Show game details screen for searching
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GameDetailsScreen(
+                game: game,
+                onGameUpdated: (updatedGame) async {
+                  await liveProvider.updateGame(updatedGame);
+                },
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -128,25 +180,56 @@ class LiveGamesScreen extends StatelessWidget {
   }
 
   Future<void> _launchGame(BuildContext context, Game game) async {
-    final settingsProvider =
-        Provider.of<SettingsProvider>(context, listen: false);
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final liveProvider = Provider.of<LiveGamesProvider>(context, listen: false);
+
+    // Check if game has IGDB ID
+    if (game.igdbId == null) {
+      final shouldSearch = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Game Details Missing'),
+          content: const Text('This game does not have IGDB details. Would you like to search for it now?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Skip'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Search'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSearch == true && context.mounted) {
+        // Show game search dialog
+        final updatedGame = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GameDetailsScreen(
+              game: game,
+              onGameUpdated: (updatedGame) async {
+                await liveProvider.updateGame(updatedGame);
+              },
+            ),
+          ),
+        );
+
+        if (updatedGame == null) {
+          return; // User cancelled the search
+        }
+      }
+    }
 
     // Use the specific Xenia paths
-    String? executable = game.lastUsedExecutable;
-    if (executable == null) {
-      executable = settingsProvider.config.xeniaCanaryPath ?? 
-                  settingsProvider.config.xeniaNetplayPath ?? 
-                  settingsProvider.config.xeniaStablePath;
+    final xeniaPath = settingsProvider.config.xeniaCanaryPath;
+    if (xeniaPath == null) {
+      throw Exception('Xenia executable not configured');
     }
 
-    if (executable == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No Xenia executables found')),
-      );
-      return;
-    }
-
-    await _runGame(context, game, executable);
+    await _runGame(context, game, xeniaPath);
   }
 
   Future<void> _runGame(

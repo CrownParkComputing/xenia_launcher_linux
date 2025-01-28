@@ -8,6 +8,8 @@ import '../services/xenia_update_service.dart';
 import '../models/config.dart';
 import '../models/game.dart';
 import 'base_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
 
 class SettingsProvider extends BaseProvider {
   final XeniaUpdateService _xeniaUpdateService = XeniaUpdateService();
@@ -92,16 +94,12 @@ class SettingsProvider extends BaseProvider {
   }
 
   Future<void> setXeniaExecutables(List<String> paths) async {
-    config.xeniaExecutables = paths;
-    // Update the specific paths as well
+    // Only keep the Canary path
     for (final path in paths) {
       final fileName = path.split(Platform.pathSeparator).last.toLowerCase();
       if (fileName.contains('canary') && !fileName.contains('netplay')) {
         await setXeniaCanaryPath(path);
-      } else if (fileName.contains('netplay')) {
-        await setXeniaNetplayPath(path);
-      } else {
-        await setXeniaStablePath(path);
+        break;
       }
     }
     await saveConfig();
@@ -109,25 +107,6 @@ class SettingsProvider extends BaseProvider {
 
   Future<void> setXeniaCanaryPath(String path) async {
     config.xeniaCanaryPath = path;
-    if (!config.xeniaExecutables.contains(path)) {
-      config.xeniaExecutables.add(path);
-    }
-    await saveConfig();
-  }
-
-  Future<void> setXeniaNetplayPath(String path) async {
-    config.xeniaNetplayPath = path;
-    if (!config.xeniaExecutables.contains(path)) {
-      config.xeniaExecutables.add(path);
-    }
-    await saveConfig();
-  }
-
-  Future<void> setXeniaStablePath(String path) async {
-    config.xeniaStablePath = path;
-    if (!config.xeniaExecutables.contains(path)) {
-      config.xeniaExecutables.add(path);
-    }
     await saveConfig();
   }
 
@@ -137,11 +116,40 @@ class SettingsProvider extends BaseProvider {
     notifyListeners();
   }
 
-  Future<void> updateExecutableVersion(
-      String executablePath, String version) async {
-    config.xeniaVersions[executablePath] = version;
-    await saveConfig();
-    notifyListeners();
+  Future<String?> _getXeniaVersion(String executablePath) async {
+    final execDir = path_util.dirname(executablePath);
+    final logPath = path_util.join(execDir, 'xenia.log');
+
+    // Clear existing log
+    final logFile = File(logPath);
+    if (await logFile.exists()) {
+      await logFile.writeAsString('');
+    }
+
+    // Run Xenia briefly to generate version info
+    final result = await runExecutable(executablePath, config.winePrefix ?? '', []);
+    if (result.process != null) {
+      // Wait briefly for log to be written
+      await Future.delayed(const Duration(seconds: 1));
+      result.process!.kill();
+    }
+
+    // Try to read version from log file
+    if (await logFile.exists()) {
+      final logContent = await logFile.readAsString();
+      final lines = logContent.split('\n');
+      if (lines.isNotEmpty) {
+        final firstLine = lines.first;
+        if (firstLine.contains('Build:')) {
+          final buildIndex = firstLine.indexOf('Build:');
+          if (buildIndex != -1) {
+            return firstLine.substring(buildIndex + 'Build: '.length).trim();
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   Future<bool> checkForUpdates() async {
@@ -154,14 +162,8 @@ class SettingsProvider extends BaseProvider {
     try {
       _latestVersion = await _xeniaUpdateService.getLatestCanaryVersion();
 
-      if (_latestVersion != null && config.xeniaExecutables.isNotEmpty) {
-        // Check version of first canary executable
-        final canaryExe = config.xeniaExecutables.firstWhere(
-          (exe) => exe.toLowerCase().contains('canary'),
-          orElse: () => config.xeniaExecutables.first,
-        );
-
-        final currentVersion = config.xeniaVersions[canaryExe];
+      if (_latestVersion != null && config.xeniaCanaryPath != null) {
+        final currentVersion = await _getXeniaVersion(config.xeniaCanaryPath!);
         if (currentVersion == null) {
           _setUpdateStatus('Version information not available');
           return true; // Trigger update check if we don't have version info
@@ -185,15 +187,15 @@ class SettingsProvider extends BaseProvider {
   }
 
   Future<bool> updateXenia() async {
-    if (config.xeniaExecutables.isEmpty) {
-      _setUpdateStatus('No Xenia executables configured');
+    if (config.xeniaCanaryPath == null) {
+      _setUpdateStatus('No Xenia executable configured');
       return false;
     }
 
     try {
       _setUpdateStatus('Downloading update...');
       final success = await _xeniaUpdateService
-          .downloadUpdate(config.xeniaExecutables.first);
+          .downloadUpdate(config.xeniaCanaryPath!);
 
       if (success) {
         _setUpdateStatus('Update downloaded, rescanning executables...');
@@ -265,56 +267,51 @@ class SettingsProvider extends BaseProvider {
       if (File(logPath).existsSync()) {
         final logContent = await File(logPath).readAsString();
         final lines = logContent.split('\n');
-
-        // Look for version in first line
         if (lines.isNotEmpty) {
           final firstLine = lines.first;
           if (firstLine.contains('Build:')) {
             final buildIndex = firstLine.indexOf('Build:');
             if (buildIndex != -1) {
-              final version =
-                  firstLine.substring(buildIndex + 'Build: '.length).trim();
+              final version = firstLine.substring(buildIndex + 'Build: '.length).trim();
               log('Found version: $version');
-              await updateExecutableVersion(executable, version);
             }
           }
         }
       }
 
-      // Wait briefly to see if the process starts successfully
-      await Future.delayed(const Duration(seconds: 2));
+      // Start collecting output streams but don't wait for completion
+      // This allows the process to continue running while we monitor output
+      final stdoutFuture =
+          process.stdout.transform(const SystemEncoding().decoder).join();
+      final stderrFuture =
+          process.stderr.transform(const SystemEncoding().decoder).join();
 
-      log('Successfully launched Xenia test');
+      // Wait briefly to catch immediate errors
+      final stderr = await stderrFuture.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => '',
+      );
+
+      if (stderr.isNotEmpty) {
+        log('Error output: $stderr');
+      }
+
       return true;
     } catch (e) {
-      log('Error testing executable: $e');
-      return false;
-    } finally {
+      log('Error running executable: $e');
+
+      // Ensure process cleanup on error
       if (process != null) {
         try {
-          // Try graceful termination first
-          process.kill(ProcessSignal.sigterm);
-
-          // Wait briefly for process to exit
-          await Future.delayed(const Duration(seconds: 2));
-
-          // Force kill if still running
-          try {
-            final running = process.kill(ProcessSignal.sigterm);
-            if (running) {
-              process.kill(ProcessSignal.sigkill);
-            }
-          } catch (e) {
-            // Process already terminated
-          }
-
-          // Ensure streams are properly closed
+          process.kill();
           await process.stdout.drain();
           await process.stderr.drain();
         } catch (e) {
           // Ignore cleanup errors
         }
       }
+
+      return false;
     }
   }
 
@@ -341,26 +338,19 @@ class SettingsProvider extends BaseProvider {
   }
 
   Future<({String? stdout, String? stderr, Process? process})> runExecutable(
-    String executable,
-    String winePrefix,
-    List<String> args,
-  ) async {
+      String executable, String winePrefix, List<String> args) async {
     Process? process;
     try {
-      final gamePath = args.first;
-      final command = 'WINEPREFIX=$winePrefix wine $executable $gamePath';
-
-      log('Launching game with Xenia');
-      log('Launch command: $command');
+      log('Running executable: $executable');
+      log('Using WINEPREFIX: $winePrefix');
+      log('Arguments: $args');
 
       process = await Process.start(
           'wine',
-          [
-            executable,
-            gamePath,
-          ],
+          [executable, ...args],
           environment: {
             'WINEPREFIX': winePrefix,
+            'WINEDEBUG': '-all',
           },
           runInShell: true);
 
@@ -405,5 +395,13 @@ class SettingsProvider extends BaseProvider {
 
       return (stdout: null, stderr: e.toString(), process: null);
     }
+  }
+
+  String? getExecutableDisplayName(Game game) {
+    final path = game.executablePath;
+    if (path == null) return null;
+    final fileName = path.split(Platform.pathSeparator).last.toLowerCase();
+    if (fileName == 'xenia_canary.exe') return 'Xenia Canary';
+    return fileName;
   }
 }

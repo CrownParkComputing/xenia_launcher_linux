@@ -59,22 +59,6 @@ class XeniaConfigCard extends StatelessWidget {
                 onPressed: () => _selectXeniaCanaryPath(context),
               ),
             ),
-            ListTile(
-              title: const Text('Xenia Netplay Executable'),
-              subtitle: Text(settingsProvider.config.xeniaNetplayPath ?? 'Not set'),
-              trailing: IconButton(
-                icon: const Icon(Icons.folder),
-                onPressed: () => _selectXeniaNetplayPath(context),
-              ),
-            ),
-            ListTile(
-              title: const Text('Xenia Stable Executable'),
-              subtitle: Text(settingsProvider.config.xeniaStablePath ?? 'Not set'),
-              trailing: IconButton(
-                icon: const Icon(Icons.folder),
-                onPressed: () => _selectXeniaStablePath(context),
-              ),
-            ),
           ],
         ),
       ),
@@ -129,34 +113,6 @@ class XeniaConfigCard extends StatelessWidget {
 
     if (result != null && result.files.single.path != null) {
       await settingsProvider.setXeniaCanaryPath(result.files.single.path!);
-    }
-  }
-
-  Future<void> _selectXeniaNetplayPath(BuildContext context) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-
-    final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Select Xenia Netplay Executable',
-      type: FileType.custom,
-      allowedExtensions: ['exe'],
-    );
-
-    if (result != null && result.files.single.path != null) {
-      await settingsProvider.setXeniaNetplayPath(result.files.single.path!);
-    }
-  }
-
-  Future<void> _selectXeniaStablePath(BuildContext context) async {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-
-    final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Select Xenia Stable Executable',
-      type: FileType.custom,
-      allowedExtensions: ['exe'],
-    );
-
-    if (result != null && result.files.single.path != null) {
-      await settingsProvider.setXeniaStablePath(result.files.single.path!);
     }
   }
 }

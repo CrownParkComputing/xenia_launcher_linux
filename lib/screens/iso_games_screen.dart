@@ -7,13 +7,30 @@ import '../providers/game_stats_provider.dart';
 import '../models/game.dart';
 import '../widgets/game_grid.dart';
 
-class IsoGamesScreen extends StatelessWidget {
+class IsoGamesScreen extends StatefulWidget {
   const IsoGamesScreen({super.key});
 
   @override
+  _IsoGamesScreenState createState() => _IsoGamesScreenState();
+}
+
+class _IsoGamesScreenState extends State<IsoGamesScreen> {
+  String _getExecutableDisplayName(String? executablePath) {
+    if (executablePath == null) return 'No executable set';
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final dummyGame = Game(
+      title: '',
+      path: '',
+      lastUsedExecutable: executablePath,
+      type: GameType.iso,
+    );
+    return settingsProvider.getExecutableDisplayName(dummyGame) ?? 'Unknown';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isoProvider = Provider.of<IsoGamesProvider>(context);
     final settingsProvider = Provider.of<SettingsProvider>(context);
+    final isoProvider = Provider.of<IsoGamesProvider>(context);
 
     return _buildBody(context, isoProvider, settingsProvider);
   }
@@ -52,14 +69,14 @@ class IsoGamesScreen extends StatelessWidget {
           Expanded(
             child: GameGrid(
               games: isoProvider.isoGames,
-              getExecutableDisplayName:
-                  settingsProvider.getExecutableDisplayName,
+              getExecutableDisplayName: _getExecutableDisplayName,
               onGameTap: (game) => _launchGame(context, game),
               onGameMoreTap: (game) => _showDLCDialog(context, game),
               onGameDelete: (game) => _removeGame(context, game),
               onGameTitleEdit: (game, newTitle) => _updateGameTitle(context, game, newTitle),
               onGameSearchTitleEdit: (game, newSearchTitle) => _updateGameSearchTitle(context, game, newSearchTitle),
               onImportTap: () => _importGame(context),
+              showAddGame: true,
             ),
           ),
         ],
@@ -128,22 +145,12 @@ class IsoGamesScreen extends StatelessWidget {
     final settingsProvider =
         Provider.of<SettingsProvider>(context, listen: false);
 
-    // Use the specific Xenia paths
-    String? executable = game.lastUsedExecutable;
-    if (executable == null) {
-      executable = settingsProvider.config.xeniaCanaryPath ?? 
-                  settingsProvider.config.xeniaNetplayPath ?? 
-                  settingsProvider.config.xeniaStablePath;
+    final xeniaPath = settingsProvider.config.xeniaCanaryPath;
+    if (xeniaPath == null) {
+      throw Exception('Xenia executable not configured');
     }
 
-    if (executable == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No Xenia executables found')),
-      );
-      return;
-    }
-
-    await _runGame(context, game, executable);
+    await _runGame(context, game, xeniaPath);
   }
 
   Future<void> _runGame(

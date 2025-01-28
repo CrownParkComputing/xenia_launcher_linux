@@ -25,15 +25,9 @@ class AchievementsScreen extends StatelessWidget {
     }
 
     // Get the executable path
-    final xeniaPath = settingsProvider.config.xeniaCanaryPath ?? 
-                     settingsProvider.config.xeniaNetplayPath ?? 
-                     settingsProvider.config.xeniaStablePath;
-
+    final xeniaPath = settingsProvider.config.xeniaCanaryPath;
     if (xeniaPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No Xenia executable found')),
-      );
-      return;
+      throw Exception('Xenia executable not configured');
     }
 
     // Show loading indicator

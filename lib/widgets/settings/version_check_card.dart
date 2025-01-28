@@ -9,7 +9,7 @@ class VersionCheckCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
-    if (settingsProvider.config.xeniaExecutables.isEmpty) {
+    if (settingsProvider.config.xeniaCanaryPath == null) {
       return const SizedBox.shrink();
     }
 

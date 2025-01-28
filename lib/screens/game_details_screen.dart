@@ -9,11 +9,14 @@ import '../providers/game_stats_provider.dart';
 import 'achievements_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import '../widgets/dialogs/igdb_search_dialog.dart';
 
 class GameDetailsScreen extends StatefulWidget {
   final Game game;
+  final Function(Game)? onGameUpdated;
 
-  const GameDetailsScreen({super.key, required this.game});
+  const GameDetailsScreen({super.key, required this.game, this.onGameUpdated});
 
   @override
   State<GameDetailsScreen> createState() => _GameDetailsScreenState();
@@ -41,6 +44,37 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
   Future<void> _loadGameDetails() async {
     try {
       developer.log('Fetching details for game: ${widget.game.title}');
+      if (widget.game.igdbId != null) {
+        developer.log('Using IGDB ID: ${widget.game.igdbId}');
+        final details = await _igdbService.getGameById(widget.game.igdbId!);
+        if (details != null) {
+          if (mounted) {
+            setState(() {
+              _gameDetails = details;
+              _isLoading = false;
+            });
+          }
+          
+          // Update the game with new details
+          if (widget.onGameUpdated != null) {
+            final updatedGame = widget.game.copyWith(
+              igdbId: details.id,
+              summary: details.summary,
+              rating: details.rating,
+              releaseDate: details.releaseDate,
+              genres: details.genres,
+              gameModes: details.gameModes,
+              screenshots: details.screenshots,
+              coverUrl: details.coverUrl,
+              localCoverPath: details.localCoverPath,
+            );
+            await widget.onGameUpdated!(updatedGame);
+          }
+          return;
+        }
+      }
+
+      developer.log('No IGDB ID, searching by name');
       final details = await _gameSearchService.searchGame(context, widget.game);
       developer.log('Received game details: $details');
 
@@ -49,6 +83,22 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
           _gameDetails = details;
           _isLoading = false;
         });
+      }
+
+      // Update the game with new details if found
+      if (details != null && widget.onGameUpdated != null) {
+        final updatedGame = widget.game.copyWith(
+          igdbId: details.id,
+          summary: details.summary,
+          rating: details.rating,
+          releaseDate: details.releaseDate,
+          genres: details.genres,
+          gameModes: details.gameModes,
+          screenshots: details.screenshots,
+          coverUrl: details.coverUrl,
+          localCoverPath: details.localCoverPath,
+        );
+        await widget.onGameUpdated!(updatedGame);
       }
     } catch (e, stackTrace) {
       developer.log('Error loading game details: $e\n$stackTrace');
@@ -140,6 +190,53 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.game.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () async {
+              debugPrint('Opening game search dialog');
+              final result = await showDialog<IGDBGame>(
+                context: context,
+                builder: (context) => IgdbSearchDialog(
+                  currentTitle: widget.game.title,
+                ),
+              );
+              
+              if (result != null) {
+                debugPrint('Selected game: ${result.name}');
+                setState(() {
+                  _gameDetails = result;
+                  _isLoading = false;
+                });
+                
+                // Update the game in the database with new details
+                final updatedGame = widget.game.copyWith(
+                  igdbId: result.id,
+                  title: widget.game.title, // Keep original title
+                  searchTitle: result.name,  // Store IGDB name for future searches
+                  summary: result.summary,
+                  rating: result.rating,
+                  releaseDate: result.releaseDate,
+                  genres: result.genres,
+                  gameModes: result.gameModes,
+                  screenshots: result.screenshots,
+                  coverUrl: result.coverUrl,
+                  localCoverPath: result.localCoverPath,
+                );
+                
+                debugPrint('Updating game with new details');
+                if (widget.onGameUpdated != null) {
+                  await widget.onGameUpdated!(updatedGame);
+                  debugPrint('Game updated successfully');
+                } else {
+                  debugPrint('No onGameUpdated callback provided');
+                }
+              } else {
+                debugPrint('No game selected from search dialog');
+              }
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -186,46 +283,131 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Cover image
           if (_gameDetails!.coverUrl != null)
             Center(
-              child: CachedNetworkImage(
-                imageUrl: _gameDetails!.coverUrl!,
-                height: 300,
-                fit: BoxFit.cover,
-                errorWidget: (context, url, error) => const Icon(Icons.error),
-                placeholder: (context, url) =>
-                    const CircularProgressIndicator(),
-              ),
+              child: _gameDetails!.localCoverPath != null && File(_gameDetails!.localCoverPath!).existsSync()
+                ? Image.file(
+                    File(_gameDetails!.localCoverPath!),
+                    height: 300,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      debugPrint('Error loading local cover: $error');
+                      return const Icon(Icons.error);
+                    },
+                  )
+                : CachedNetworkImage(
+                    imageUrl: _gameDetails!.coverUrl!,
+                    height: 300,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    errorWidget: (context, url, error) {
+                      debugPrint('Error loading network cover: $error');
+                      return const Icon(Icons.error);
+                    },
+                  ),
             ),
+
+          // Game Stats
           _buildGameStats(),
+
+          // Game Details
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Title and Basic Info
                 Text(
                   _gameDetails!.name,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                if (_gameDetails!.rating != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber),
-                      Text(
-                          ' ${(_gameDetails!.rating! / 10).toStringAsFixed(1)}/10'),
-                    ],
-                  ),
-                ],
-                if (_gameDetails!.releaseDate != null) ...[
+
+                // Version Title if available
+                if (_gameDetails!.versionTitle != null) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Released: ${_gameDetails!.releaseDate!.year}',
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    _gameDetails!.versionTitle!,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ],
+
+                // Ratings
+                if (_gameDetails!.rating != null ||
+                    _gameDetails!.aggregatedRating != null ||
+                    _gameDetails!.totalRating != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Ratings',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (_gameDetails!.rating != null)
+                    ListTile(
+                      leading: const Icon(Icons.star, color: Colors.amber),
+                      title: Text('User Rating'),
+                      trailing: Text('${(_gameDetails!.rating! / 10).toStringAsFixed(1)}/10'),
+                    ),
+                  if (_gameDetails!.aggregatedRating != null)
+                    ListTile(
+                      leading: const Icon(Icons.reviews, color: Colors.blue),
+                      title: Text('Critic Rating'),
+                      trailing: Text('${(_gameDetails!.aggregatedRating! / 10).toStringAsFixed(1)}/10'),
+                      subtitle: Text('Based on ${_gameDetails!.aggregatedRatingCount} reviews'),
+                    ),
+                  if (_gameDetails!.totalRating != null)
+                    ListTile(
+                      leading: const Icon(Icons.score, color: Colors.green),
+                      title: Text('Total Rating'),
+                      trailing: Text('${(_gameDetails!.totalRating! / 10).toStringAsFixed(1)}/10'),
+                      subtitle: Text('Based on ${_gameDetails!.totalRatingCount} ratings'),
+                    ),
+                ],
+
+                // Release Date and Status
+                if (_gameDetails!.releaseDate != null || _gameDetails!.status != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Release Information',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (_gameDetails!.releaseDate != null)
+                    ListTile(
+                      leading: const Icon(Icons.calendar_today),
+                      title: Text('Release Date'),
+                      subtitle: Text(_gameDetails!.releaseDate!.toString().split(' ')[0]),
+                    ),
+                  if (_gameDetails!.status != null)
+                    ListTile(
+                      leading: const Icon(Icons.info),
+                      title: Text('Status'),
+                      subtitle: Text(_gameDetails!.status!),
+                    ),
+                ],
+
+                // Platforms
+                if (_gameDetails!.platforms.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Platforms',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: _gameDetails!.platforms
+                        .map((platform) => Chip(label: Text(platform)))
+                        .toList(),
+                  ),
+                ],
+
+                // Genres
                 if (_gameDetails!.genres.isNotEmpty) ...[
                   const SizedBox(height: 16),
+                  Text(
+                    'Genres',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   Wrap(
                     spacing: 8,
                     children: _gameDetails!.genres
@@ -233,6 +415,68 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                         .toList(),
                   ),
                 ],
+
+                // Game Modes
+                if (_gameDetails!.gameModes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Game Modes',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: _gameDetails!.gameModes
+                        .map((mode) => Chip(label: Text(mode)))
+                        .toList(),
+                  ),
+                ],
+
+                // Themes
+                if (_gameDetails!.themes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Themes',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: _gameDetails!.themes
+                        .map((theme) => Chip(label: Text(theme)))
+                        .toList(),
+                  ),
+                ],
+
+                // Game Engines
+                if (_gameDetails!.gameEngines.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Game Engines',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: _gameDetails!.gameEngines
+                        .map((engine) => Chip(label: Text(engine)))
+                        .toList(),
+                  ),
+                ],
+
+                // Companies
+                if (_gameDetails!.companies.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Companies',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: _gameDetails!.companies
+                        .map((company) => Chip(label: Text(company)))
+                        .toList(),
+                  ),
+                ],
+
+                // Summary
                 if (_gameDetails!.summary != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -242,6 +486,19 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                   const SizedBox(height: 8),
                   Text(_gameDetails!.summary!),
                 ],
+
+                // Storyline
+                if (_gameDetails!.storyline != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Storyline',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(_gameDetails!.storyline!),
+                ],
+
+                // Screenshots
                 if (_gameDetails!.screenshots.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -260,28 +517,17 @@ class _GameDetailsScreenState extends State<GameDetailsScreen> {
                           child: CachedNetworkImage(
                             imageUrl: _gameDetails!.screenshots[index],
                             fit: BoxFit.cover,
-                            errorWidget: (context, url, error) =>
-                                const Icon(Icons.error),
-                            placeholder: (context, url) =>
-                                const CircularProgressIndicator(),
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            errorWidget: (context, url, error) {
+                              debugPrint('Error loading screenshot: $error');
+                              return const Icon(Icons.error);
+                            },
                           ),
                         );
                       },
                     ),
-                  ),
-                ],
-                if (_gameDetails!.gameModes.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    'Game Modes',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: _gameDetails!.gameModes
-                        .map((mode) => Chip(label: Text(mode)))
-                        .toList(),
                   ),
                 ],
               ],

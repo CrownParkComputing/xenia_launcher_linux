@@ -54,33 +54,42 @@ class GameCover extends StatelessWidget {
 
   Widget _buildCoverImage() {
     // First try to use local cover
-    if (localCoverPath != null) {
+    if (localCoverPath != null && File(localCoverPath!).existsSync()) {
       return Container(
         color: Colors.black,
         child: Center(
           child: Image.file(
             File(localCoverPath!),
-            fit: BoxFit.contain,
+            fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
             alignment: Alignment.center,
+            errorBuilder: (context, error, stackTrace) {
+              debugPrint('Error loading local cover: $error');
+              return _buildDefaultCover();
+            },
           ),
         ),
       );
     }
-    // If no local cover, try IGDB cover
+    // If no local cover or local file doesn't exist, try IGDB cover
     if (gameDetails?.coverUrl != null) {
       return Container(
         color: Colors.black,
         child: Center(
           child: CachedNetworkImage(
             imageUrl: gameDetails!.coverUrl!,
-            fit: BoxFit.contain,
+            fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
             alignment: Alignment.center,
-            placeholder: (context, url) => _buildDefaultCover(),
-            errorWidget: (context, url, error) => _buildDefaultCover(),
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            errorWidget: (context, url, error) {
+              debugPrint('Error loading network cover: $error');
+              return _buildDefaultCover();
+            },
           ),
         ),
       );
@@ -95,7 +104,7 @@ class GameCover extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       alignment: Alignment.center,
-      child: const Icon(Icons.gamepad, size: 64),
+      child: const Icon(Icons.gamepad, size: 64, color: Colors.white54),
     );
   }
 }

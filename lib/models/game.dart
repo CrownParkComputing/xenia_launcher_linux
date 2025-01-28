@@ -18,6 +18,15 @@ class Game {
   final Duration totalPlayTime;
   final List<Achievement> achievements;
   final int? igdbId;  // Added IGDB ID field
+  final String? summary;
+  final double? rating;
+  final DateTime? releaseDate;
+  final List<String>? genres;
+  final List<String>? gameModes;
+  final List<String>? screenshots;
+  final String? coverUrl;
+  final String? localCoverPath;
+  final String? gameFilePath;  // Added for Xbox Live games
 
   Game({
     this.id,
@@ -34,6 +43,15 @@ class Game {
     Duration? totalPlayTime,
     List<Achievement>? achievements,
     this.igdbId,  // Added to constructor
+    this.summary,
+    this.rating,
+    this.releaseDate,
+    this.genres,
+    this.gameModes,
+    this.screenshots,
+    this.coverUrl,
+    this.localCoverPath,
+    this.gameFilePath,  // Added to constructor
   })  : dateAdded = dateAdded ?? DateTime.now(),
         dlc = dlc ?? [],
         totalPlayTime = totalPlayTime ?? Duration.zero,
@@ -55,6 +73,15 @@ class Game {
       'totalPlayTime': totalPlayTime.inSeconds,
       'achievements': achievements.map((a) => a.toJson()).toList(),
       'igdbId': igdbId,  // Added to JSON serialization
+      'summary': summary,
+      'rating': rating,
+      'releaseDate': releaseDate?.toIso8601String(),
+      'genres': genres,
+      'gameModes': gameModes,
+      'screenshots': screenshots,
+      'coverUrl': coverUrl,
+      'localCoverPath': localCoverPath,
+      'gameFilePath': gameFilePath,  // Added to JSON serialization
     };
   }
 
@@ -89,6 +116,17 @@ class Game {
               .toList() ??
           [],
       igdbId: json['igdbId'] as int?,  // Added to JSON deserialization
+      summary: json['summary'] as String?,
+      rating: json['rating'] as double?,
+      releaseDate: json['releaseDate'] != null
+          ? DateTime.parse(json['releaseDate'] as String)
+          : null,
+      genres: (json['genres'] as List<dynamic>?)?.cast<String>(),
+      gameModes: (json['gameModes'] as List<dynamic>?)?.cast<String>(),
+      screenshots: (json['screenshots'] as List<dynamic>?)?.cast<String>(),
+      coverUrl: json['coverUrl'] as String?,
+      localCoverPath: json['localCoverPath'] as String?,
+      gameFilePath: json['gameFilePath'] as String?,  // Added to JSON deserialization
     );
   }
 
@@ -107,6 +145,15 @@ class Game {
     Duration? totalPlayTime,
     List<Achievement>? achievements,
     int? igdbId,  // Added to copyWith
+    String? summary,
+    double? rating,
+    DateTime? releaseDate,
+    List<String>? genres,
+    List<String>? gameModes,
+    List<String>? screenshots,
+    String? coverUrl,
+    String? localCoverPath,
+    String? gameFilePath,  // Added to copyWith
   }) {
     return Game(
       id: id ?? this.id,
@@ -123,6 +170,15 @@ class Game {
       totalPlayTime: totalPlayTime ?? this.totalPlayTime,
       achievements: achievements ?? List.from(this.achievements),
       igdbId: igdbId ?? this.igdbId,  // Added to copyWith
+      summary: summary ?? this.summary,
+      rating: rating ?? this.rating,
+      releaseDate: releaseDate ?? this.releaseDate,
+      genres: genres ?? this.genres,
+      gameModes: gameModes ?? this.gameModes,
+      screenshots: screenshots ?? this.screenshots,
+      coverUrl: coverUrl ?? this.coverUrl,
+      localCoverPath: localCoverPath ?? this.localCoverPath,
+      gameFilePath: gameFilePath ?? this.gameFilePath,  // Added to copyWith
     );
   }
 

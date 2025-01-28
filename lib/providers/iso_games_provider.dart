@@ -86,10 +86,10 @@ class IsoGamesProvider extends BaseProvider {
     await updateGame(updatedGame);
   }
 
-  Future<void> importGame(String gamePath) async {
+  Future<Game?> importGame(String gamePath) async {
     final isIso = gamePath.toLowerCase().endsWith('.iso');
     final isZar = gamePath.toLowerCase().endsWith('.zar');
-    if (!isIso && !isZar) return;
+    if (!isIso && !isZar) return null;
 
     final extension = isIso ? '.iso' : '.zar';
     final title = gamePath.split(Platform.pathSeparator).last.replaceAll(extension, '');
@@ -146,8 +146,7 @@ class IsoGamesProvider extends BaseProvider {
           final updatedGame = game.copyWith(achievements: achievements);
           await updateGame(updatedGame);
           print('Game updated with ${achievements.length} achievements');
-        } else {
-          print('No achievements found');
+          return updatedGame;
         }
 
         // Clean up temp directory for zar files
@@ -160,6 +159,8 @@ class IsoGamesProvider extends BaseProvider {
       } else {
         print('Xenia not configured, skipping achievement extraction');
       }
+
+      return game;
     } catch (e) {
       print('Error importing game: $e');
       rethrow;
